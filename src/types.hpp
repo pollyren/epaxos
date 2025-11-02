@@ -15,7 +15,14 @@ using InstanceId = int;
 
 // command structure
 struct Command {
-
+    enum Action {
+        NOOP,               // no operation
+        READ,               // read key-value pair
+        WRITE,              // write key-value pair
+        DELETE              // delete key
+    } action;               // action type
+    std::string key;        // key for the operation
+    std::string value;      // value for write operation
 };
 
 // ballot structure

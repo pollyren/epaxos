@@ -11,9 +11,7 @@ enum class MessageType {
     PRE_ACCEPT_REPLY,
     ACCEPT,
     ACCEPT_REPLY,
-    COMMIT,
-    PREPARE,
-    PREPARE_REPLY
+    COMMIT
 };
 
 // message structure
