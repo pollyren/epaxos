@@ -12,6 +12,22 @@ namespace epaxos {
 // basic identifiers
 using ReplicaId = int;
 using InstanceId = int;
+using Key = std::string;
+using Value = std::string;
+
+struct Replica {
+    ReplicaId id;
+    std::string address; // network address of the replica
+
+    // metadata for other replicas on fast and slow paths
+    // ...
+
+    std::vector<std::vector<struct Instance>> instances; // instance space
+    std::map<Key, int> conflicts; // TODO: check, conflicts
+
+    Replica(ReplicaId rid, const std::string& addr)
+        : id(rid), address(addr), instances(), conflicts() {}
+};
 
 // command structure
 struct Command {
