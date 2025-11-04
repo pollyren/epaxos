@@ -73,10 +73,15 @@ enum class Status {
     EXECUTED
 };
 
+struct InstanceID {
+    ReplicaId replica_id;
+    InstanceId instance_id;
+};
+
 // instance attributes
 struct InstanceAttr {
     int seq;  // sequence number
-    std::vector<Instance> deps;  // dependencies
+    std::vector<InstanceID> deps;  // dependencies
 
     /*InstanceAttr() : seq(0) {}
     InstanceAttr(int s, const std::set<std::pair<ReplicaId, InstanceId>>& d)
@@ -88,6 +93,7 @@ struct Instance {
     Command cmd;
     Ballot ballot;
     Status status;
+    InstanceID id;
     InstanceAttr attr;
 
     Instance() : status(Status::NONE) {}

@@ -2,16 +2,16 @@ syntax = "proto3";
 package demo;
 
 
-message InstanceId { int32 replica = 1; int64 index = 2; }
+message InstanceId { string replicaID = 1; int64 InstanceNum = 2; }
 message Ballot { int64 n = 1; int32 replica = 2; }
 
-message Command { bytes data = 1; repeated string keys = 2; } // keys used for conflicts
+message Command { bool isWrite = 1; string key = 2; string value = 3; } // keys used for conflicts
 
 message PreAcceptReq {
-  InstanceId id = 1;
-  Command cmd = 2;
-  int64 seq = 3;                     // tentative sequence
-  repeated InstanceId deps = 4;      // tentative deps --> a set of instances
+  Command cmd = 1;
+  int64 seq = 2;                     // tentative sequence
+  repeated InstanceId deps = 3;      // tentative deps --> a set of instances
+  InstanceId id = 4;                 // instance being pre-accepted
   Ballot ballot = 5;
 }
 message PreAcceptReply {
