@@ -1,11 +1,18 @@
 syntax = "proto3";
 package demo;
 
+enum Action {
+  READ = 0; // proto3 enums MUST have a 0 value
+  WRITE  = 1;
+  DELETE = 2;
+  NOOP = 3;
+  DUMMY = 4;
+}
 
-message InstanceId { string replicaID = 1; int64 InstanceNum = 2; }
+message InstanceId { string replica_id = 1; int64 instance_seq_id = 2; }
 message Ballot { int64 n = 1; int32 replica = 2; }
 
-message Command { bool isWrite = 1; string key = 2; string value = 3; } // keys used for conflicts
+message Command { Action action = 1; string key = 2; string value = 3; } // keys used for conflicts
 
 message PreAcceptReq {
   Command cmd = 1;

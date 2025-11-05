@@ -10,8 +10,8 @@
 namespace epaxosTypes {
 
 // basic identifiers
-using ReplicaId = int;
-using InstanceId = int;
+using ReplicaId = std::string;
+using InstanceSeqId = int64_t;
 using Key = std::string;
 using Value = std::string;
 
@@ -32,6 +32,7 @@ struct Replica {
 // command structure
 struct Command {
     enum Action {
+        DUMMY,
         NOOP,               // no operation
         READ,               // read key-value pair
         WRITE,              // write key-value pair
@@ -75,7 +76,11 @@ enum class Status {
 
 struct InstanceID {
     ReplicaId replica_id;
-    InstanceId instance_id;
+    InstanceSeqId replicaInstance_id;
+
+    InstanceID() : replica_id(), replicaInstance_id(0) {}
+    InstanceID(ReplicaId rid, InstanceSeqId iid)
+        : replica_id(rid), replicaInstance_id(iid) {}
 };
 
 // instance attributes
@@ -83,7 +88,8 @@ struct InstanceAttr {
     int seq;  // sequence number
     std::vector<InstanceID> deps;  // dependencies
 
-    /*InstanceAttr() : seq(0) {}
+    InstanceAttr() : seq() {}
+    /*
     InstanceAttr(int s, const std::set<std::pair<ReplicaId, InstanceId>>& d)
         : seq(s), deps(d) {}*/
 };
@@ -91,7 +97,7 @@ struct InstanceAttr {
 // instance structure
 struct Instance {
     Command cmd;
-    Ballot ballot;
+    //Ballot ballot;
     Status status;
     InstanceID id;
     InstanceAttr attr;
