@@ -129,6 +129,28 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
         return insts;
     }
+    void commit(const epaxosTypes::Instance newInstance){
+        //mark the instance as committed
+        epaxosTypes::Instance inst = newInstance;
+        inst.status = epaxosTypes::Status::COMMITTED;
+        instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+
+        std::cout << "[" << thisReplica_
+                  << "] Committed instance: " <<printInstance(inst) << std::endl;
+
+    }
+    std::string printInstance(const epaxosTypes::Instance& inst){
+        std::ostringstream oss;
+        oss << "Instance " << inst.id.replica_id << "." << inst.id.replicaInstance_id
+            << " [cmd: action=" << inst.cmd.action
+            << " key=" << inst.cmd.key
+            << " value=" << inst.cmd.value
+            << "; status=" << static_cast<int>(inst.status)
+            << "; seq=" << inst.attr.seq
+            << "; deps=" << vec_to_string(inst.attr.deps)
+            << "]";
+        return oss.str();
+    }
 
    public:
     EPaxosReplica(std::string name,
@@ -220,23 +242,63 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         id.set_replica_id(newInstance.id.replica_id);
         id.set_instance_seq_id(newInstance.id.replicaInstance_id);
         preAcceptReq.mutable_id()->CopyFrom(id);
+        preAcceptReq.set_sender(thisReplica_);
 
         //  send PreAccept to all fast quorum members
-        std::vector<std::string> preAcceptAcks;
+        std::map<std::string,demo::PreAcceptReply>  preAcceptReplies;
         for (const auto& peerName : fastQuorumNames_) {
-            demo::PreAcceptReply r;
             grpc::ClientContext ctx;
-            auto status = peersNameToStub_[peerName]->PreAccept(&ctx, preAcceptReq, &r);
-            if (status.ok()) {
-                preAcceptAcks.push_back(peerName + " <- " + "OK");
-            } else {
-                preAcceptAcks.push_back(peerName +
-                               " <- ERROR: " + status.error_message());
+            auto status = peersNameToStub_[peerName]->PreAccept(&ctx, preAcceptReq, &preAcceptReplies[peerName]);
+            if (!status.ok()) {
+                throw std::runtime_error("RPC failed: " + status.error_message());
             }
         }
         
-   
-        resp->set_status("write accepted");
+        std::cout <<"----------------------------\n ["
+            << thisReplica_ << "] PreAccept Reply: "
+            << std::endl;
+            
+        int agreeCount = 0;
+        for (const auto& [name, reply] : preAcceptReplies) {
+            std::cout
+            << " From: " << name 
+            << "  Reply Details: "
+            << " ok=" << (reply.ok() ? "true" : "false")
+            << " seq=" << reply.seq()
+            << " conflict=" << (reply.conflict() ? "true" : "false")            
+            << std::endl;
+
+            if(reply.ok() && !reply.conflict()){
+                agreeCount++;
+            }
+            if(agreeCount >= (peerSize/2 + 1 )){
+                break;
+            }
+        }
+
+        //deciding the fast path or slow path
+        if ( agreeCount >= (peerSize/2 + 1 )){
+            std::cout << "[" << thisReplica_
+                  << "] PreAccept phase succeeded for instance: " 
+                  << newInstance.id.replica_id
+                  << "." << newInstance.id.replicaInstance_id << 
+                  "; Go to fast path" << std::endl;
+            //commit the instance
+            commit(newInstance);
+            resp->set_status("write accepted");
+            return Status::OK;
+        } else {
+            std::cout << "[" << thisReplica_
+                  << "] PreAccept phase FAILED for instance: " 
+                  << newInstance.id.replica_id
+                  << "." << newInstance.id.replicaInstance_id << 
+                "; Go to slow path" << std::endl;
+
+                //to be implemented: slow path logic
+            return Status::CANCELLED;
+
+        }
+
         return Status::OK;
     }
 
@@ -248,6 +310,15 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             << "] Received PreAcceptReq for instance "
             << req->id().replica_id() << "."
             << req->id().instance_seq_id() << std::endl;
+
+            if(req->sender().empty()){
+                throw std::runtime_error("PreAcceptReq: replica_id is empty");
+            }
+
+            if(req->sender() != req->id().replica_id()){
+                throw std::runtime_error("PreAcceptReq: sender and proposal mismatch");
+            }
+         
 
             //construct command from request
             epaxosTypes::Command cmd;
@@ -272,23 +343,71 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             instanceId.replica_id = req->id().replica_id();
             instanceId.replicaInstance_id = req->id().instance_seq_id();
 
-            std::vector<epaxosTypes::InstanceID> interferenceDeps = findDependencies(cmd);
-            interferenceDeps.reserve(deps.size() + interferenceDeps.size());
+            std::vector<epaxosTypes::InstanceID> proposedDeps = findDependencies(cmd);
+            proposedDeps.reserve(deps.size() + proposedDeps.size());
 
+            bool conflict;
             //determine max sequence number from dependencies
-            int maxSeq = findMaxSeq(interferenceDeps);
-            int proposedSeq = req->seq() > maxSeq ? seq : maxSeq + 1;
+            int maxSeq = findMaxSeq(proposedDeps);
+
+            //check if findDependencies(cmd) is a subset of deps to determine conflict
+            if(proposedDeps.size() > deps.size()){
+                conflict = true;
+            } else {
+                conflict = false;
+                for (const auto& pd : proposedDeps) {
+                    bool found = false;
+                    for (const auto& d : deps) {
+                        if (pd.replica_id == d.replica_id &&
+                            pd.replicaInstance_id == d.replicaInstance_id) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        conflict = true;
+                        break;
+                    }
+                }
+            }
+            
+            int proposedSeq;
+            if (seq > maxSeq) {
+                proposedSeq = seq;
+                conflict = false;
+            } else {
+                proposedSeq = maxSeq + 1;
+                conflict = true;
+            }
 
             //union dependencies
-            interferenceDeps.insert(interferenceDeps.end(),
+            proposedDeps.insert(proposedDeps.end(),
                                         deps.begin(),
                                         deps.end());
 
+            //remove duplicates from proposedDeps
+            std::sort(proposedDeps.begin(), proposedDeps.end(),
+                      [](const epaxosTypes::InstanceID& a,
+                         const epaxosTypes::InstanceID& b) {
+                          if (a.replica_id != b.replica_id)
+                              return a.replica_id < b.replica_id;
+                          return a.replicaInstance_id < b.replicaInstance_id;
+                      });
+            proposedDeps.erase(
+                std::unique(proposedDeps.begin(), proposedDeps.end(),
+                            [](const epaxosTypes::InstanceID& a,
+                               const epaxosTypes::InstanceID& b) {
+                                return a.replica_id == b.replica_id &&
+                                       a.replicaInstance_id ==
+                                           b.replicaInstance_id;
+                            }),
+                proposedDeps.end());
 
 
             std::cout << "  Proposed Seq: " << proposedSeq 
                     << "  Proposed Deps: " 
-                    << vec_to_string(interferenceDeps)
+                    << vec_to_string(proposedDeps)
+                    <<". Conflict: " << (conflict ? "true" : "false")
                     << std::endl;
 
             //store the instance locally
@@ -296,7 +415,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             newInstance.cmd = cmd;
             newInstance.status = epaxosTypes::Status::PRE_ACCEPTED;
             newInstance.id = instanceId;
-            newInstance.attr.deps = interferenceDeps;
+            newInstance.attr.deps = proposedDeps;
             newInstance.attr.seq = proposedSeq;
 
             //resize instance vector if needed
@@ -309,7 +428,20 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                       << "] Stored new instance: " << newInstance.id.replica_id
                       << "." << newInstance.id.replicaInstance_id << std::endl;
           
-            
+
+        //prepare the reply message
+        resp->set_ok(true);
+        resp->set_sender(thisReplica_);
+        resp->set_seq(proposedSeq);
+        resp->set_already_committed(false);
+        for (const auto& dep : proposedDeps) {
+            demo::InstanceId* d = resp->add_deps();
+            d->set_replica_id(dep.replica_id);
+            d->set_instance_seq_id(dep.replicaInstance_id);
+        }
+        resp->set_conflict(conflict);
+        //resp->set_status("PreAccept OK");
+
         return Status::OK;
     }
 

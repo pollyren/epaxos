@@ -20,6 +20,8 @@ message PreAcceptReq {
   repeated InstanceId deps = 3;      // tentative deps --> a set of instances
   InstanceId id = 4;                 // instance being pre-accepted
   Ballot ballot = 5;
+  string sender = 6;          // sender replica
+
 }
 message PreAcceptReply {
   bool ok = 1;
@@ -27,6 +29,7 @@ message PreAcceptReply {
   repeated InstanceId deps = 3;
   bool conflict = 4;
   bool already_committed = 5;
+  string sender = 6;          // sender replica
 }
 
 //todo: AcceptReq
