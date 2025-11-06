@@ -1,11 +1,11 @@
 #ifndef EPAXOS_TYPES_HPP
 #define EPAXOS_TYPES_HPP
 
+#include <map>
+#include <memory>
+#include <set>
 #include <string>
 #include <vector>
-#include <map>
-#include <set>
-#include <memory>
 
 namespace epaxosTypes {
 
@@ -17,13 +17,13 @@ using Value = std::string;
 
 struct Replica {
     ReplicaId id;
-    std::string address; // network address of the replica
+    std::string address;  // network address of the replica
 
     // metadata for other replicas on fast and slow paths
     // ...
 
-    std::vector<std::vector<struct Instance>> instances; // instance space
-    std::map<Key, int> conflicts; // TODO: check, conflicts
+    std::vector<std::vector<struct Instance>> instances;  // instance space
+    std::map<Key, int> conflicts;  // TODO: check, conflicts
 
     Replica(ReplicaId rid, const std::string& addr)
         : id(rid), address(addr), instances(), conflicts() {}
@@ -33,19 +33,19 @@ struct Replica {
 struct Command {
     enum Action {
         DUMMY,
-        NOOP,               // no operation
-        READ,               // read key-value pair
-        WRITE,              // write key-value pair
-        DELETE              // delete key
-    } action;               // action type
-    std::string key;        // key for the operation
-    std::string value;      // value for write operation
+        NOOP,           // no operation
+        READ,           // read key-value pair
+        WRITE,          // write key-value pair
+        DELETE          // delete key
+    } action;           // action type
+    std::string key;    // key for the operation
+    std::string value;  // value for write operation
 };
 
 // ballot structure
 struct Ballot {
-    int number; // ballot number for ordering
-    ReplicaId replica_id; // id of the replica that created the ballot
+    int number;            // ballot number for ordering
+    ReplicaId replica_id;  // id of the replica that created the ballot
 
     Ballot() : number(0), replica_id(0) {}
     Ballot(int n, ReplicaId r) : number(n), replica_id(r) {}
@@ -59,14 +59,12 @@ struct Ballot {
         return number == other.number && replica_id == other.replica_id;
     }
 
-    bool operator>(const Ballot& other) const {
-        return other < *this;
-    }
+    bool operator>(const Ballot& other) const { return other < *this; }
 };
 
 // instance status
 enum class Status {
-    NONE, // default initial value
+    NONE,  // default initial value
     PREPARED,
     PRE_ACCEPTED,
     ACCEPTED,
@@ -85,7 +83,7 @@ struct InstanceID {
 
 // instance attributes
 struct InstanceAttr {
-    int seq;  // sequence number
+    int seq;                       // sequence number
     std::vector<InstanceID> deps;  // dependencies
 
     InstanceAttr() : seq() {}
@@ -97,7 +95,7 @@ struct InstanceAttr {
 // instance structure
 struct Instance {
     Command cmd;
-    //Ballot ballot;
+    // Ballot ballot;
     Status status;
     InstanceID id;
     InstanceAttr attr;
@@ -105,6 +103,6 @@ struct Instance {
     Instance() : status(Status::NONE) {}
 };
 
-} // namespace epaxos
+}  // namespace epaxosTypes
 
-#endif // EPAXOS_TYPES_HPP
+#endif  // EPAXOS_TYPES_HPP
