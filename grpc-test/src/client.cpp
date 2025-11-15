@@ -6,13 +6,14 @@
 #include <vector>
 
 #include "epaxos.grpc.pb.h"
+#include "workload.hpp"
 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 int a;
 
-static demo::PingResp do_call(const std::shared_ptr<Channel>& ch,
+static demo::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
                               const std::string& msg, int id, bool fanout) {
     auto stub = demo::Echo::NewStub(ch);
     demo::PingReq req;
@@ -58,88 +59,40 @@ static demo::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
     return resp;
 }
 
-int main(int argc, char** argv) {
-    // Usage:
-    //   ./client [--fanout] <host:port> [<host:port> ...] <message>
-    if (argc < 3) {
-        std::cerr << "Usage: ./client [--fanout] <host:port> [<host:port> ...] "
-                     "<message>\n";
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: ./client <workload_file>\n";
         return 1;
     }
 
-    int argi = 1;
+    workload::CSVParser parser;
+    auto operations = parser.parse(argv[1]);
 
-    char type = argv[argi][0];
-    ++argi;
+    for (const auto& op : operations) {
+        try {
+            // create channel to target server
+            auto ch =
+                grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
 
-    switch (type) {
-        case 'w': {
-            std::cout << "send request to epaxos replica(s)\n";
-            if (argc - argi < 2) {
-                std::cerr << "missing args\n";
-                return 1;
-            }
-            std::string key = argv[argi++];
-            std::string value = argv[argi++];
-            std::vector<std::string> addrs;
-            for (int i = argi; i < argc; ++i) addrs.emplace_back(argv[i]);
-
-            int id = 1;
-            for (const auto& a : addrs) {
-                auto ch =
-                    grpc::CreateChannel(a, grpc::InsecureChannelCredentials());
-                try {
-                    auto resp = call_write(ch, key, value);
-
-                    std::cout << "\n";
-                } catch (const std::exception& e) {
-                    std::cout << "error contacting " << a << ": " << e.what()
-                              << "\n";
+            switch (op.type) {
+                case workload::OperationType::OP_WRITE: {
+                    std::cout << "Writing key='" << op.key << "' value='"
+                              << op.value << "' to server='" << op.server << "'\n";
+                    auto resp = call_write(ch, op.key, op.value);
+                    break;
                 }
-            }
-        }
-
-        break;
-        case 'g': {
-            std::cout << "send get state request to epaxos replica(s)\n";
-
-            std::vector<std::string> addrs;
-            for (int i = argi; i < argc; ++i) addrs.emplace_back(argv[i]);
-            for (const auto& a : addrs) {
-                auto ch =
-                    grpc::CreateChannel(a, grpc::InsecureChannelCredentials());
-                try {
+                case workload::OperationType::OP_READ: {
+                    std::cout << "Read operation not implemented yet.\n";
+                    break;
+                }
+                case workload::OperationType::OP_GET_STATE: {
+                    std::cout << "Getting state from server='" << op.server << "'\n";
                     auto resp = call_get_state(ch);
-                } catch (const std::exception& e) {
-                    std::cout << "error contacting " << a << ": " << e.what()
-                              << "\n";
+                    break;
                 }
-            }
-        } break;
-        case 'b': {
-            // Broadcast
-            std::cout << "send request to Ping replica(s)\n";
-            bool fanout = false;
-            if (std::string(argv[argi]) == "--fanout") {
-                fanout = true;
-                ++argi;
-            }
-
-            if (argc - argi < 2) {
-                std::cerr << "missing args\n";
-                return 1;
-            }
-
-            std::vector<std::string> addrs;
-            for (int i = argi; i < argc - 1; ++i) addrs.emplace_back(argv[i]);
-            std::string msg = argv[argc - 1];
-
-            int id = 1;
-            for (const auto& a : addrs) {
-                auto ch =
-                    grpc::CreateChannel(a, grpc::InsecureChannelCredentials());
-                try {
-                    auto resp = do_call(ch, msg, id++, fanout);
+                case workload::OperationType::OP_BROADCAST: {
+                    int id = 1;
+                    auto resp = call_broadcast(ch, op.value, id++, true);
                     std::cout << "reply='" << resp.reply()
                               << "' from=" << resp.from();
                     if (resp.broadcasted_to_size() > 0) {
@@ -148,11 +101,12 @@ int main(int argc, char** argv) {
                             std::cout << " [" << s << "]";
                     }
                     std::cout << "\n";
-                } catch (const std::exception& e) {
-                    std::cout << "error contacting " << a << ": " << e.what()
-                              << "\n";
+                    break;
                 }
             }
+        } catch (const std::exception& e) {
+            std::cout << "error contacting " << op.server << ": " << e.what()
+                      << "\n";
         }
     }
 

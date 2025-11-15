@@ -38,6 +38,9 @@ target_include_directories(epaxos_proto PUBLIC ${GEN_DIR})
 target_link_libraries(epaxos_proto PUBLIC protobuf::libprotobuf gRPC::grpc++)
 
 add_executable(server src/server.cpp)
-add_executable(client src/client.cpp)
+add_executable(client
+  src/client.cpp
+  src/workload.cpp
+)
 target_link_libraries(server PRIVATE epaxos_proto)
 target_link_libraries(client PRIVATE epaxos_proto)
