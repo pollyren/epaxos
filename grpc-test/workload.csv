@@ -1,5 +1,6 @@
-"k121","apple","localhost:50054"
-"k121","banana","localhost:50054"
-"k121","cherry","localhost:50054"
-"k122","date","localhost:50054"
-"k122","elderberry","localhost:50054"
+write,"k121","apple",localhost:50054
+write,"k121","banana",localhost:50054
+write,"k121","cherry",localhost:50054
+write,"k122","date",localhost:50054
+write,"k122","elderberry",localhost:50054
+get_state,,,localhost:50054
