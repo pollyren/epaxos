@@ -60,7 +60,14 @@ std::string CSVParser::trim(const std::string& str) {
 
     auto b = str.find_last_not_of(" \t\n\r");
 
-    return str.substr(a, b - a + 1);
+    std::string out = str.substr(a, b - a + 1);
+
+    // also trim surrounding quotes if present
+    if (out.size() >= 2 && out.front() == '"' && out.back() == '"') {
+        out = out.substr(1, out.size() - 2);
+    }
+
+    return out;
 }
 
 }  // namespace workload

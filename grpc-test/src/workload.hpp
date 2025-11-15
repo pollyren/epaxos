@@ -8,10 +8,10 @@ namespace workload {
 
 // types of operations
 enum class OperationType {
-    OP_READ,
-    OP_WRITE,
-    OP_BROADCAST,
-    OP_GET_STATE,
+    OP_READ,        // read,key,,server
+    OP_WRITE,       // write,key,value,server
+    OP_BROADCAST,   // broadcast,,value,server
+    OP_GET_STATE,   // get_state,,,server
 };
 
 // struct to represent a single operation
