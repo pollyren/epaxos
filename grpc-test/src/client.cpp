@@ -25,7 +25,7 @@ static demo::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
     Status s = stub->Ping(&ctx, req, &resp);
-    if (!s.ok()) throw std::runtime_error("RPC failed: " + s.error_message());
+    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
     return resp;
 }
 
@@ -42,7 +42,7 @@ static demo::WriteResp call_write(const std::shared_ptr<Channel>& ch,
                      std::chrono::seconds(3));
     Status s = stub->ClientWriteReq(&ctx, req, &resp);
     std::cout << "Response status: " << resp.status() << "\n";
-    if (!s.ok()) throw std::runtime_error("RPC failed: " + s.error_message());
+    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
     return resp;
 }
 
@@ -55,7 +55,7 @@ static demo::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
                      std::chrono::seconds(3));
     Status s = stub->ClientGetStateReq(&ctx, req, &resp);
     std::cout << "Response state: " << resp.state() << "\n";
-    if (!s.ok()) throw std::runtime_error("RPC failed: " + s.error_message());
+    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
     return resp;
 }
 
@@ -69,11 +69,10 @@ int main(int argc, char **argv) {
     auto operations = parser.parse(argv[1]);
 
     for (const auto& op : operations) {
-        try {
-            // create channel to target server
-            auto ch =
-                grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
+        // create channel to target server
+        auto ch = grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
 
+        try {
             switch (op.type) {
                 case workload::OperationType::OP_WRITE: {
                     std::cout << "Writing key='" << op.key << "' value='"
