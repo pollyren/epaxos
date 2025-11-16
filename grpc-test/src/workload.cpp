@@ -11,7 +11,8 @@ std::vector<Operation> CSVParser::parse(const std::string& filename) {
     std::vector<Operation> operations;
     std::ifstream file(filename);
     if (!file.is_open()) {
-        throw std::runtime_error("CSVParser::parse: unable to open file: " + filename);
+        throw std::runtime_error("CSVParser::parse: unable to open file: " +
+                                 filename);
     }
 
     std::string line;
@@ -48,13 +49,14 @@ OperationType CSVParser::parse_type(const std::string& op_str) {
     } else if (op_str == "get_state") {
         return OperationType::OP_GET_STATE;
     } else {
-        throw std::runtime_error("CSVParser::parse_type: unknown operation: " + op_str);
+        throw std::runtime_error("CSVParser::parse_type: unknown operation: " +
+                                 op_str);
     }
 }
 
 std::string CSVParser::trim(const std::string& str) {
     auto a = str.find_first_not_of(" \t\n\r");
-    if (a == std::string::npos) { // handle case where string is all whitespace
+    if (a == std::string::npos) {  // handle case where string is all whitespace
         return "";
     }
 

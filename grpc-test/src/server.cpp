@@ -58,7 +58,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     std::unordered_map<std::string, std::vector<struct epaxosTypes::Instance>>
         instances;
 
-    //return one instance
+    // return one instance
     std::string vec_to_string(const std::vector<epaxosTypes::InstanceID>& v) {
         std::ostringstream oss;
         oss << '[';
@@ -71,38 +71,32 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return oss.str();
     }
 
-    //return the string the current state (instances) of this replica
-    std::string instances_to_string(){
+    // return the string the current state (instances) of this replica
+    std::string instances_to_string() {
         std::string res;
-        for(const auto& [replica, instVec] : instances ){
-            for(const auto& instance : instVec){
-                res+= "  - " +printInstance(instance) + "\n";
+        for (const auto& [replica, instVec] : instances) {
+            for (const auto& instance : instVec) {
+                res += "  - " + printInstance(instance) + "\n";
             }
         }
         return res;
     }
 
-    std::string printInstance(const epaxosTypes::Instance& inst){
+    std::string printInstance(const epaxosTypes::Instance& inst) {
         std::ostringstream oss;
-        oss << "Instance " << inst.id.replica_id << "." << inst.id.replicaInstance_id
-            << " [cmd: action=" << inst.cmd.action
-            << " key=" << inst.cmd.key
-            << " value=" << inst.cmd.value
+        oss << "Instance " << inst.id.replica_id << "."
+            << inst.id.replicaInstance_id << " [cmd: action=" << inst.cmd.action
+            << " key=" << inst.cmd.key << " value=" << inst.cmd.value
             << "; status=" << static_cast<int>(inst.status)
             << "; seq=" << inst.attr.seq
-            << "; deps=" << vec_to_string(inst.attr.deps)
-            << "]";
+            << "; deps=" << vec_to_string(inst.attr.deps) << "]";
         return oss.str();
     }
 
+    // build dependency graph
 
-
-    //build dependency graph
-
-
-
-    //return a set of dependencies for a given command in the form of Q.i
-    std::vector<epaxosTypes:: InstanceID>  findDependencies(
+    // return a set of dependencies for a given command in the form of Q.i
+    std::vector<epaxosTypes::InstanceID> findDependencies(
         const epaxosTypes::Command& cmd) {
         std::vector<epaxosTypes::InstanceID> deps;
 
@@ -169,9 +163,10 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
 
         std::cout << "[" << thisReplica_
-                  << "] Committed instance: " <<printInstance(inst) << std::endl;
-                std::cout << "[" << thisReplica_
-                  << "] Current replica state: \n" <<instances_to_string() << std::endl;
+                  << "] Committed instance: " << printInstance(inst)
+                  << std::endl;
+        std::cout << "[" << thisReplica_ << "] Current replica state: \n"
+                  << instances_to_string() << std::endl;
 
         // construct commit req message
         demo::CommitReq commitReq;
@@ -188,7 +183,6 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
 
         demo::Command* c = commitReq.mutable_cmd();
-        // Manually copy fields from epaxosTypes::Command to demo::Command
         c->set_action(static_cast<demo::Action>(inst.cmd.action));
         c->set_key(inst.cmd.key);
         c->set_value(inst.cmd.value);
@@ -201,13 +195,13 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
     }
 
-    Status run_paxos_accept(epaxosTypes::Instance newInstance, demo::Command c, demo::InstanceId id) {
+    Status run_paxos_accept(epaxosTypes::Instance newInstance, demo::Command c,
+                            demo::InstanceId id) {
         // prepare and send accept messages
         demo::AcceptReq acceptReq;
 
         // set instance to accepted
-        instances[newInstance.id.replica_id]
-                 [newInstance.id.replicaInstance_id]
+        instances[newInstance.id.replica_id][newInstance.id.replicaInstance_id]
             .status = epaxosTypes::Status::ACCEPTED;
 
         // prepare the seq
@@ -239,8 +233,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         int agreeCount = 0;
         for (const auto& [name, reply] : acceptReplies) {
             std::cout << " From: " << name << "  Reply Details: "
-                      << " ok=" << (reply.ok() ? "true" : "false")
-                      << std::endl;
+                      << " ok=" << (reply.ok() ? "true" : "false") << std::endl;
 
             if (reply.ok()) {
                 agreeCount++;
@@ -254,7 +247,6 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         return Status::OK;
     }
-
 
    public:
     EPaxosReplica(std::string name,
@@ -387,7 +379,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                       << "] PreAccept phase succeeded for instance: "
                       << newInstance.id.replica_id << "."
                       << newInstance.id.replicaInstance_id
-                      << "because agreeCount=" << agreeCount << " >= " << "peerSize=" << peerSize
+                      << "because agreeCount=" << agreeCount
+                      << " >= " << "peerSize=" << peerSize
                       << "; Go to fast path" << std::endl;
             // commit the instance
             commit(newInstance);
@@ -549,25 +542,23 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     }
 
     Status Accept_(ServerContext* /* ctx */, const demo::AcceptReq* req,
-                  demo::AcceptReply* resp) override {
+                   demo::AcceptReply* resp) override {
         if (req->sender().empty()) {
             throw std::runtime_error("AcceptReq: replica_id is empty");
         }
 
         if (req->sender() != req->id().replica_id()) {
-            throw std::runtime_error(
-                "AcceptReq: sender and proposal mismatch");
+            throw std::runtime_error("AcceptReq: sender and proposal mismatch");
         }
 
         std::cout << "[" << thisReplica_ << "] Received Accept from "
-                  << req->sender() << " for instance "
-                  << req->id().replica_id() << "." << req->id().instance_seq_id()
-                  << " seq=" << req->seq() << std::endl;
+                  << req->sender() << " for instance " << req->id().replica_id()
+                  << "." << req->id().instance_seq_id() << " seq=" << req->seq()
+                  << std::endl;
 
         // set instances[L][i] to accepted
-        instances[req->id().replica_id()]
-                 [req->id().instance_seq_id()]
-            .status = epaxosTypes::Status::ACCEPTED;
+        instances[req->id().replica_id()][req->id().instance_seq_id()].status =
+            epaxosTypes::Status::ACCEPTED;
 
         // prepare the reply message, i.e., set ok to true
         resp->set_ok(true);
@@ -579,11 +570,10 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     Status Commit(ServerContext* /*ctx*/, const demo::CommitReq* req,
                   demo::CommitReply* /*resp*/) override {
         std::cout << "[" << thisReplica_ << "] Received Commit for instance "
-                  << req->id().replica_id() << "." << req->id().instance_seq_id()
-                  << std::endl;
-        instances[req->id().replica_id()]
-                 [req->id().instance_seq_id()]
-            .status = epaxosTypes::Status::COMMITTED;
+                  << req->id().replica_id() << "."
+                  << req->id().instance_seq_id() << std::endl;
+        instances[req->id().replica_id()][req->id().instance_seq_id()].status =
+            epaxosTypes::Status::COMMITTED;
         return Status::OK;
     }
 
