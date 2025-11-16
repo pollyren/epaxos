@@ -184,6 +184,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         for (const auto& [name, addr] : peer_name_to_addrs) {
             instances[name] = std::vector<struct epaxosTypes::Instance>();
         }
+
+        peerSize = peer_name_to_addrs.size();
     }
 
     Status ClientWriteReq(ServerContext* /*ctx*/, const demo::WriteReq* req,
@@ -281,6 +283,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                       << "] PreAccept phase succeeded for instance: "
                       << newInstance.id.replica_id << "."
                       << newInstance.id.replicaInstance_id
+                      << "because agreeCount=" << agreeCount << " >= " << "peerSize=" << peerSize
                       << "; Go to fast path" << std::endl;
             // commit the instance
             commit(newInstance);
