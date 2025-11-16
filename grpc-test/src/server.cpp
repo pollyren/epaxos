@@ -13,6 +13,7 @@
 #include "../build/generated/epaxos.grpc.pb.h"
 #include "epaxos.pb.h"
 #include "types.hpp"
+#include "graph.hpp" 
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -34,6 +35,7 @@ std::string now_ns_str() {
     return std::to_string(
         duration_cast<nanoseconds>(steady_clock::now().time_since_epoch())
             .count());
+
 }
 }  // namespace
 
@@ -69,6 +71,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return oss.str();
     }
 
+    
     //return the string the current state (instances) of this replica
     std::string instances_to_string(){
         std::string res;
@@ -159,7 +162,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
         return insts;
     }
-    void commit(const epaxosTypes::Instance newInstance){
+
+    void execute(const epaxosTypes::Instance newInstance){
         //mark the instance as committed
         epaxosTypes::Instance inst = newInstance;
         inst.status = epaxosTypes::Status::COMMITTED;
@@ -169,7 +173,87 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   << "] Committed instance: " <<printInstance(inst) << std::endl;
                 std::cout << "[" << thisReplica_
                   << "] Current replica state: \n" <<instances_to_string() << std::endl;
-    
+
+        Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph = buildDependencyGraphForInstanceID(inst.id);
+
+        //topological sort the dependency graph
+        auto sortedIds = depGraph.topologicalSort();
+        
+        std::cout << "[" << thisReplica_
+                  << "] Execution order for instance " << inst.id.replica_id << "." << inst.id.replicaInstance_id << ": ";
+        
+        for (const auto& id : sortedIds.second) {
+            std::cout << id.replica_id << "." << id.replicaInstance_id << " ";
+        }
+        if(sortedIds.second .size() == 0){
+            std::cout << "(none) ";
+        }
+        if(sortedIds.first){
+            std::cout << " (DAG)";
+        } else {
+            std::cout << " (not a DAG, cycle detected)";
+        }
+        std::cout << std::endl;
+
+    }
+
+    Graph<epaxosTypes::InstanceID, InstanceIDHash> buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id) {
+        // Create a graph to represent dependencies
+        Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph(false);
+
+
+        // Use a queue for BFS traversal
+        std::queue<epaxosTypes::InstanceID> toVisit;
+        std::unordered_set<std::string> visited;
+        toVisit.push(id);
+
+        // BFS to build the graph
+        while (!toVisit.empty()) {
+            epaxosTypes::InstanceID currentId = toVisit.front();
+            toVisit.pop();
+
+            std::string idStr = currentId.replica_id + "." + std::to_string(currentId.replicaInstance_id);
+            if (visited.find(idStr) != visited.end()) {
+                continue;  // already visited
+            }
+            visited.insert(idStr);
+
+            // Get the instance corresponding to currentId
+            epaxosTypes::Instance currentInst = findInstanceById(currentId);
+            depGraph.addVertex(currentId);
+
+            // Add edges for dependencies
+            for (const auto& depId : currentInst.attr.deps) {
+                depGraph.addVertex(depId);
+                depGraph.addEdge(currentId, depId);
+                toVisit.push(depId);
+            }
+        }
+
+        //print the detail of the dependency graph
+
+        std::cout << "[" << thisReplica_
+                  << "] Dependency graph for instance " << id.replica_id << "." << id.replicaInstance_id << " built." << std::endl;
+
+        // Print the graph
+        std::cout << "[" << thisReplica_
+                    << "] Dependency Graph Edges:" << std::endl;
+        for (const auto& vertexIdStr : visited) {
+            //parse vertexIdStr to InstanceID
+            auto pos = vertexIdStr.find('.');
+            std::string rid = vertexIdStr.substr(0, pos);
+            int iid = std::stoi(vertexIdStr.substr(pos + 1));
+            epaxosTypes::InstanceID vertexId{rid, iid};
+
+            const auto& currentInst = findInstanceById(vertexId);
+            for (const auto& depId : currentInst.attr.deps) {
+                std::cout << "  " << vertexId.replica_id << "." << vertexId.replicaInstance_id
+                          << " -> " << depId.replica_id << "." << depId.replicaInstance_id << std::endl;
+            }
+        }       
+
+        return depGraph;
+        
     }
 
 
@@ -204,6 +288,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         for (const auto& [name,addr] : peer_name_to_addrs) {
             instances[name] = std::vector<struct epaxosTypes::Instance>();
         }
+
+        //
+        
     }
 
     Status ClientWriteReq(ServerContext* /*ctx*/, const demo::WriteReq* req,
@@ -305,7 +392,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   << "." << newInstance.id.replicaInstance_id << 
                   "; Go to fast path" << std::endl;
             //commit the instance
-            commit(newInstance);
+            execute(newInstance);
             resp->set_status("write accepted");
             return Status::OK;
         } else {

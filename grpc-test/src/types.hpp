@@ -81,7 +81,14 @@ struct InstanceID {
     InstanceID() : replica_id(), replicaInstance_id(0) {}
     InstanceID(ReplicaId rid, InstanceSeqId iid)
         : replica_id(rid), replicaInstance_id(iid) {}
+        
 };
+
+inline bool operator==(const InstanceID& a, const InstanceID& b) noexcept {
+    return a.replica_id == b.replica_id &&
+           a.replicaInstance_id == b.replicaInstance_id;
+}
+
 
 // instance attributes
 struct InstanceAttr {
@@ -106,5 +113,14 @@ struct Instance {
 };
 
 } // namespace epaxos
+
+
+struct InstanceIDHash {
+    size_t operator()(const epaxosTypes::InstanceID& id) const noexcept {
+        size_t h1 = std::hash<std::string>{}(id.replica_id);
+        size_t h2 = std::hash<int>{}(id.replicaInstance_id);
+        return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+    }
+};
 
 #endif // EPAXOS_TYPES_HPP
