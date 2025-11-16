@@ -51,8 +51,8 @@ message CommitReq {
   repeated InstanceId deps = 3;
   Command cmd = 4;
 }
-message CommitReply {} // empty ack
 
+message CommitReply {} // empty ack
 
 message WriteReq {
   string key = 1;

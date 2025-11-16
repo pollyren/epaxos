@@ -173,6 +173,32 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                 std::cout << "[" << thisReplica_
                   << "] Current replica state: \n" <<instances_to_string() << std::endl;
 
+        // construct commit req message
+        demo::CommitReq commitReq;
+        demo::InstanceId* id = commitReq.mutable_id();
+        id->set_replica_id(inst.id.replica_id);
+        id->set_instance_seq_id(inst.id.replicaInstance_id);
+
+        commitReq.set_seq(inst.attr.seq);
+
+        for (const auto& dep : inst.attr.deps) {
+            demo::InstanceId* depId = commitReq.add_deps();
+            depId->set_replica_id(dep.replica_id);
+            depId->set_instance_seq_id(dep.replicaInstance_id);
+        }
+
+        demo::Command* c = commitReq.mutable_cmd();
+        // Manually copy fields from epaxosTypes::Command to demo::Command
+        c->set_action(static_cast<demo::Action>(inst.cmd.action));
+        c->set_key(inst.cmd.key);
+        c->set_value(inst.cmd.value);
+
+        // send commit messages to all replicas
+        for (const auto& [peerName, stub] : peersNameToStub_) {
+            grpc::ClientContext ctx;
+            demo::CommitReply commitReply;
+            stub->Commit(&ctx, commitReq, &commitReply);
+        }
     }
 
     Status run_paxos_accept(epaxosTypes::Instance newInstance, demo::Command c, demo::InstanceId id) {
@@ -223,6 +249,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                 break;
             }
         }
+
+        commit(newInstance);
 
         return Status::OK;
     }
@@ -545,6 +573,17 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         resp->set_ok(true);
         resp->set_sender(thisReplica_);
 
+        return Status::OK;
+    }
+
+    Status Commit(ServerContext* /*ctx*/, const demo::CommitReq* req,
+                  demo::CommitReply* /*resp*/) override {
+        std::cout << "[" << thisReplica_ << "] Received Commit for instance "
+                  << req->id().replica_id() << "." << req->id().instance_seq_id()
+                  << std::endl;
+        instances[req->id().replica_id()]
+                 [req->id().instance_seq_id()]
+            .status = epaxosTypes::Status::COMMITTED;
         return Status::OK;
     }
 
