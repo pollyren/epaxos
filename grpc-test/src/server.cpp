@@ -58,6 +58,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     std::unordered_map<std::string, std::vector<struct epaxosTypes::Instance>>
         instances;
 
+    //return one instance
     std::string vec_to_string(const std::vector<epaxosTypes::InstanceID>& v) {
         std::ostringstream oss;
         oss << '[';
@@ -70,8 +71,38 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return oss.str();
     }
 
-    // return a set of dependencies for a given command in the form of Q.i
-    std::vector<epaxosTypes::InstanceID> findDependencies(
+    //return the string the current state (instances) of this replica
+    std::string instances_to_string(){
+        std::string res;
+        for(const auto& [replica, instVec] : instances ){
+            for(const auto& instance : instVec){
+                res+= "  - " +printInstance(instance) + "\n";
+            }
+        }
+        return res;
+    }
+
+    std::string printInstance(const epaxosTypes::Instance& inst){
+        std::ostringstream oss;
+        oss << "Instance " << inst.id.replica_id << "." << inst.id.replicaInstance_id
+            << " [cmd: action=" << inst.cmd.action
+            << " key=" << inst.cmd.key
+            << " value=" << inst.cmd.value
+            << "; status=" << static_cast<int>(inst.status)
+            << "; seq=" << inst.attr.seq
+            << "; deps=" << vec_to_string(inst.attr.deps)
+            << "]";
+        return oss.str();
+    }
+
+
+
+    //build dependency graph
+
+
+
+    //return a set of dependencies for a given command in the form of Q.i
+    std::vector<epaxosTypes:: InstanceID>  findDependencies(
         const epaxosTypes::Command& cmd) {
         std::vector<epaxosTypes::InstanceID> deps;
 
@@ -138,19 +169,12 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
 
         std::cout << "[" << thisReplica_
-                  << "] Committed instance: " << printInstance(inst)
-                  << std::endl;
+                  << "] Committed instance: " <<printInstance(inst) << std::endl;
+                std::cout << "[" << thisReplica_
+                  << "] Current replica state: \n" <<instances_to_string() << std::endl;
+
     }
-    std::string printInstance(const epaxosTypes::Instance& inst) {
-        std::ostringstream oss;
-        oss << "Instance " << inst.id.replica_id << "."
-            << inst.id.replicaInstance_id << " [cmd: action=" << inst.cmd.action
-            << " key=" << inst.cmd.key << " value=" << inst.cmd.value
-            << "; status=" << static_cast<int>(inst.status)
-            << "; seq=" << inst.attr.seq
-            << "; deps=" << vec_to_string(inst.attr.deps) << "]";
-        return oss.str();
-    }
+
 
    public:
     EPaxosReplica(std::string name,
