@@ -21,8 +21,8 @@ message PreAcceptReq {
   InstanceId id = 4;                 // instance being pre-accepted
   Ballot ballot = 5;
   string sender = 6;          // sender replica
-
 }
+
 message PreAcceptReply {
   bool ok = 1;
   int64 seq = 2;
@@ -32,8 +32,18 @@ message PreAcceptReply {
   string sender = 6;          // sender replica
 }
 
-//todo: AcceptReq
+// for the paxos-accept phase
+message AcceptReq { // Accept
+  int64 seq = 1;                     // sequence
+  repeated InstanceId deps = 2;      // dependences
+  InstanceId id = 3;                 // instance
+  string sender = 4;
+}
 
+message AcceptReply { // AcceptOK
+  bool ok = 1;
+  string sender = 2;
+}
 
 message CommitReq {
   InstanceId id = 1;
@@ -76,6 +86,7 @@ service EPaxosReplica {
 
     // Replica -> Replica
   rpc PreAccept(PreAcceptReq) returns (PreAcceptReply);
+  rpc Accept_(AcceptReq) returns (AcceptReply);
   rpc Commit(CommitReq) returns (CommitReply);
   //rpc Commit(CommitReq) returns (CommitReply);
   //rpc Prepare(PrepareReq) returns (PrepareReply);

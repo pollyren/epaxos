@@ -175,6 +175,58 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
     }
 
+    Status run_paxos_accept(epaxosTypes::Instance newInstance, demo::Command c, demo::InstanceId id) {
+        // prepare and send accept messages
+        demo::AcceptReq acceptReq;
+
+        // set instance to accepted
+        instances[newInstance.id.replica_id]
+                 [newInstance.id.replicaInstance_id]
+            .status = epaxosTypes::Status::ACCEPTED;
+
+        // prepare the seq
+        acceptReq.set_seq(newInstance.attr.seq);
+
+        // prepare the deps
+        for (const auto& dep : newInstance.attr.deps) {
+            demo::InstanceId* depId = acceptReq.add_deps();
+            depId->set_replica_id(dep.replica_id);
+            depId->set_instance_seq_id(dep.replicaInstance_id);
+        }
+
+        acceptReq.mutable_id()->CopyFrom(id);
+        acceptReq.set_sender(thisReplica_);
+
+        // send Accept to all slow quorum members
+        std::map<std::string, demo::AcceptReply> acceptReplies;
+        for (const auto& peerName : slowQuorumNames_) {
+            grpc::ClientContext ctx;
+            auto status = peersNameToStub_[peerName]->Accept_(
+                &ctx, acceptReq, &acceptReplies[peerName]);
+            if (!status.ok()) {
+                throw std::runtime_error("RPC failed: " +
+                                         status.error_message());
+            }
+        }
+
+        // collect accept replies
+        int agreeCount = 0;
+        for (const auto& [name, reply] : acceptReplies) {
+            std::cout << " From: " << name << "  Reply Details: "
+                      << " ok=" << (reply.ok() ? "true" : "false")
+                      << std::endl;
+
+            if (reply.ok()) {
+                agreeCount++;
+            }
+            if (agreeCount >= (peerSize / 2 + 1)) {
+                break;
+            }
+        }
+
+        return Status::OK;
+    }
+
 
    public:
     EPaxosReplica(std::string name,
@@ -320,8 +372,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                       << newInstance.id.replicaInstance_id
                       << "; Go to slow path" << std::endl;
 
-            // to be implemented: slow path logic
-            return Status::CANCELLED;
+            return run_paxos_accept(newInstance, c, id);
         }
 
         return Status::OK;
@@ -465,6 +516,34 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
         resp->set_conflict(conflict);
         // resp->set_status("PreAccept OK");
+
+        return Status::OK;
+    }
+
+    Status Accept_(ServerContext* /* ctx */, const demo::AcceptReq* req,
+                  demo::AcceptReply* resp) override {
+        if (req->sender().empty()) {
+            throw std::runtime_error("AcceptReq: replica_id is empty");
+        }
+
+        if (req->sender() != req->id().replica_id()) {
+            throw std::runtime_error(
+                "AcceptReq: sender and proposal mismatch");
+        }
+
+        std::cout << "[" << thisReplica_ << "] Received Accept from "
+                  << req->sender() << " for instance "
+                  << req->id().replica_id() << "." << req->id().instance_seq_id()
+                  << " seq=" << req->seq() << std::endl;
+
+        // set instances[L][i] to accepted
+        instances[req->id().replica_id()]
+                 [req->id().instance_seq_id()]
+            .status = epaxosTypes::Status::ACCEPTED;
+
+        // prepare the reply message, i.e., set ok to true
+        resp->set_ok(true);
+        resp->set_sender(thisReplica_);
 
         return Status::OK;
     }
