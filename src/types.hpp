@@ -10,8 +10,8 @@
 namespace epaxos {
 
 // basic identifiers
-using ReplicaId = int;
-using InstanceId = int;
+using ReplicaId = std::string;
+using InstanceSeqId = int;
 using Key = std::string;
 using Value = std::string;
 
@@ -75,11 +75,9 @@ enum class Status {
 // instance attributes
 struct InstanceAttr {
     int seq;  // sequence number
-    std::set<std::pair<ReplicaId, InstanceId>> deps;  // dependencies
+    std::set<std::pair<ReplicaId, InstanceSeqId>> deps;  // dependencies
 
     InstanceAttr() : seq(0) {}
-    InstanceAttr(int s, const std::set<std::pair<ReplicaId, InstanceId>>& d)
-        : seq(s), deps(d) {}
 };
 
 // instance structure

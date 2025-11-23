@@ -164,6 +164,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     }
 
     void execute(const epaxosTypes::Instance newInstance){
+        
         //mark the instance as committed
         epaxosTypes::Instance inst = newInstance;
         inst.status = epaxosTypes::Status::COMMITTED;
@@ -177,29 +178,59 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph = buildDependencyGraphForInstanceID(inst.id);
 
         //topological sort the dependency graph
-        auto sortedIds = depGraph.topologicalSort();
+        auto [isDAG, sortedIds] = depGraph.topologicalSort();
         
         std::cout << "[" << thisReplica_
                   << "] Execution order for instance " << inst.id.replica_id << "." << inst.id.replicaInstance_id << ": ";
         
-        for (const auto& id : sortedIds.second) {
+        for (const auto& id : sortedIds) {
             std::cout << id.replica_id << "." << id.replicaInstance_id << " ";
         }
-        if(sortedIds.second .size() == 0){
+        if(sortedIds .size() == 0){
             std::cout << "(none) ";
         }
-        if(sortedIds.first){
+        if(isDAG){
             std::cout << " (DAG)";
         } else {
-            std::cout << " (not a DAG, cycle detected)";
+            std::cout << " (not a DAG, cycle detected) DEBUG needed!";
         }
+
+        //TODO: handle the case where there is a cycle in the dependency graph
+
+        //assure the first in sorted order is the instance itself
+        assert(sortedIds[0].replica_id == inst.id.replica_id &&
+               sortedIds[0].replicaInstance_id == inst.id.replicaInstance_id);
+
+        //execute in the reverse sorted order
+        for(int i = sortedIds.size() -1 ; i >=0 ; --i){
+            epaxosTypes::Instance execInst = findInstanceById(sortedIds[i]);
+            std::cout << "\n[" << thisReplica_
+                  << "] Executing instance: " << printInstance(execInst) << std::endl;
+            //execute the command
+            if(execInst.cmd.action == epaxosTypes::Command::WRITE){
+                std::cout << "[" << thisReplica_
+                  << "] WRITE executed: key=" << execInst.cmd.key
+                  << " value=" << execInst.cmd.value << std::endl;
+            } else if (execInst.cmd.action == epaxosTypes::Command::READ){
+                std::cout << "[" << thisReplica_
+                  << "] READ executed: key=" << execInst.cmd.key
+                  << " value=<not implemented>" << std::endl;
+            } else {
+                std::cout << "[" << thisReplica_
+                  << "] Unknown command action: " << execInst.cmd.action << std::endl;
+            }
+        }
+
+
         std::cout << std::endl;
 
     }
 
+
+
     Graph<epaxosTypes::InstanceID, InstanceIDHash> buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id) {
         // Create a graph to represent dependencies
-        Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph(false);
+        Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph(true);
 
 
         // Use a queue for BFS traversal
@@ -264,6 +295,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   const std::vector<std::string>& slow_peer_names
                   )
         : thisReplica_(std::move(name)) {
+        peerSize = peer_name_to_addrs.size();
         // keep a list of peer addresses and stubs
         for (const auto& [name,addr] : peer_name_to_addrs) {
             peersNameToStub_[name] = demo::EPaxosReplica::NewStub(
