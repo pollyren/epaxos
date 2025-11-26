@@ -78,114 +78,15 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         return oss.str();
     }
 
-    // // return the instance given its ID Q.i
-    // multipaxosTypes::Instance findInstanceById(const multipaxosTypes::InstanceID id) {
-    //     // check if instance exists
-    //     if (instances.find(id.replica_id) == instances.end() ||
-    //         id.replicaInstance_id >= instances[id.replica_id].size()) {
-    //         throw std::runtime_error("FindInstanceById: Instance not found");
-    //     } else {
-    //         multipaxosTypes::Instance inst =
-    //             instances[id.replica_id][id.replicaInstance_id];
-
-    //         // make sure the information of Q.i matches the instance found
-    //         assert(inst.id.replica_id == id.replica_id &&
-    //                inst.id.replicaInstance_id == id.replicaInstance_id);
-
-    //         return inst;
-    //     }
-    // }
-
-    // // return a vector of instances given their IDs {P.i, Q.j, ...}
-    // std::vector<multipaxosTypes::Instance> findInstancesByIds(
-    //     const std::vector<multipaxosTypes::InstanceID>& ids) {
-    //     std::vector<multipaxosTypes::Instance> insts;
-    //     for (const auto& id : ids) {
-    //         insts.push_back(findInstanceById(id));
-    //     }
-    //     return insts;
-    // }
-
-    //TODO 
-    void commit(const multipaxosTypes::Instance newInstance) {
-        // mark the instance as committed
-        multipaxosTypes::Instance inst = newInstance;
-        inst.status = multipaxosTypes::Status::COMMITTED;
-        instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
-
-        std::cout << "[" << thisReplica_
-                  << "] Committed instance: " <<printInstance(inst) << std::endl;
-                std::cout << "[" << thisReplica_
-                  << "] Current replica state: \n" <<instances_to_string() << std::endl;
-
-    }
-
-
-   public:
-    MultiPaxosReplica(std::string name,
-                  bool is_leader,
-                  const std::map<std::string, std::string>& peer_name_to_addrs)
-        : thisReplica_(std::move(name)), is_leader_(is_leader) {
-
-        // keep a list of peer addresses and stubs
-        for (const auto& [name, addr] : peer_name_to_addrs) {
-            peersNameToStub_[name] = mp::MultiPaxosReplica::NewStub(
-                grpc::CreateChannel(addr, grpc::InsecureChannelCredentials()));
-        }
-
-        // Compute majority size: n/2 + 1 (including itself)
-        const size_t n = peersNameToStub_.size();
-        const size_t majoritySize = n / 2;
-
-        // Initialize the majority quorum
-        size_t count = 0;
-        for (const auto& [peerName, _] : peersNameToStub_) {
-            if (count >= majoritySize) break;
-            majorityQuorumNames_.push_back(peerName);
-            ++count;
-        }
-
-        // initialize instance map for each replica (peer)
-        for (const auto& [name, addr] : peer_name_to_addrs) {
-            instances[name] = std::vector<struct multipaxosTypes::Instance>();
-        }
-
-        peerSize = peer_name_to_addrs.size();
-    }
-
-    Status ClientWriteReq(ServerContext* /*ctx*/, const mp::WriteReq* req,
-                          mp::WriteResp* resp) override {
-        std::cout << "\n[" << thisReplica_
-                  << "] Received ClientWriteReq: key=" << req->key()
-                  << " value=" << req->value() << std::endl;
-
-        multipaxosTypes::Instance newInstance;
-        newInstance.cmd.action = multipaxosTypes::Command::WRITE;
-        newInstance.cmd.key = req->key();
-        newInstance.cmd.value = req->value();
-        newInstance.status = multipaxosTypes::Status::PREPARED;
-        newInstance.id.replica_id = thisReplica_;
-        newInstance.id.replicaInstance_id = instanceCounter_;
-        instanceCounter_++;
-
-        std::cout << "[" << thisReplica_
-                  << "] Created new instance: " << newInstance.id.replica_id
-                  << "." << newInstance.id.replicaInstance_id << std::endl;
-
-        instances[thisReplica_].push_back(newInstance);
-
-        if (instances[thisReplica_].size() != instanceCounter_) {
-            throw std::runtime_error("RPC failed: instance counter mismatch");
-        }
-
-        // Now send Prepare messages
+    bool prepare(const multipaxosTypes::Instance newInstance) {
+        // create prepare request
         mp::PrepareReq prepareReq;
 
         // prepare the command (gamma)
         mp::Command c;
         c.set_action(mp::Action::WRITE);
-        c.set_key(req->key());
-        c.set_value(req->value());
+        c.set_key(newInstance.cmd.key);
+        c.set_value(newInstance.cmd.value);
         prepareReq.mutable_cmd()->CopyFrom(c);
 
         // prepare id L.i for this instance
@@ -198,11 +99,15 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         //  send Prepare messages to all majority quorum members
         std::map<std::string, mp::PrepareReply> prepareReplies;
         for (const auto& peerName : majorityQuorumNames_) {
+            std::cout << "[" << thisReplica_
+                      << "] Sending PrepareReq message to: "
+                      << peerName
+                      << std::endl;
             grpc::ClientContext ctx;
             auto status = peersNameToStub_[peerName]->Prepare(
                 &ctx, prepareReq, &prepareReplies[peerName]);
             if (!status.ok()) {
-                throw std::runtime_error("RPC failed: " +
+                throw std::runtime_error("Prepare RPC failed: " +
                                          status.error_message());
             }
         }
@@ -233,17 +138,215 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                       << "] Prepare phase succeeded for instance: "
                       << newInstance.id.replica_id << "."
                       << newInstance.id.replicaInstance_id
-                      << "because agreeCount=" << agreeCount << " >= " << "peerSize=" << peerSize
+                      << " because agreeCount=" << agreeCount << " >= " << "peerSize/2=" << peerSize / 2
                       << "; Go to Accept phase" << std::endl;
-            // commit the instance
-            commit(newInstance);
-            resp->set_status("write accepted");
-            return Status::OK;
+
+            return true;
         } else {
             // not enough replies, so cancel
+            return false;
+        }
+    }
+
+    bool accept(const multipaxosTypes::Instance newInstance) {
+        // prepare the command (gamma)
+        mp::AcceptReq acceptReq;
+        mp::Command c;
+        c.set_action(mp::Action::WRITE);
+        c.set_key(newInstance.cmd.key);
+        c.set_value(newInstance.cmd.value);
+        acceptReq.mutable_cmd()->CopyFrom(c);
+
+        // prepare id L.i for this instance
+        mp::InstanceId id;
+        id.set_replica_id(newInstance.id.replica_id);
+        id.set_instance_seq_id(newInstance.id.replicaInstance_id);
+        acceptReq.mutable_id()->CopyFrom(id);
+        acceptReq.set_sender(thisReplica_);
+
+        // mark the instance as accepted locally
+        multipaxosTypes::Instance inst = newInstance;
+        inst.status = multipaxosTypes::Status::ACCEPTED;
+        instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+
+        //  send Accept messages to all majority quorum members
+        std::map<std::string, mp::AcceptReply> acceptReplies;
+
+        for (const auto& peerName : majorityQuorumNames_) {
+            std::cout << "[" << thisReplica_
+                      << "] Sending AcceptReq message to: "
+                      << peerName
+                      << std::endl;
+
+            grpc::ClientContext ctx;
+            auto status = peersNameToStub_[peerName]->Accept(
+                &ctx, acceptReq, &acceptReplies[peerName]);
+            if (!status.ok()) {
+                throw std::runtime_error("Accept RPC failed: " +
+                                        status.error_message());
+            }
+        }
+
+        std::cout << "----------------------------\n [" << thisReplica_
+                << "] Accept Reply: " << std::endl;
+
+        int agreeCount = 0;
+        for (const auto& [name, reply] : acceptReplies) {
+            std::cout << " From: " << name << "  Reply Details: "
+                    << " ok=" << (reply.ok() ? "true" : "false")
+                    << std::endl;
+            
+            if (reply.ok()) {
+                agreeCount++;
+            }          
+            if (agreeCount >= (peerSize / 2)) {
+                break;
+            }
+        }
+
+        std::cout << "AgreeCount: " << agreeCount << std::endl;
+        std::cout << "PeerSize/2: " << peerSize / 2 << std::endl;
+
+        // check that we got enough answers
+        if (agreeCount >= (peerSize / 2)) {
+            std::cout << "[" << thisReplica_
+                      << "] Accept phase succeeded for instance: "
+                      << newInstance.id.replica_id << "."
+                      << newInstance.id.replicaInstance_id
+                      << " because agreeCount=" << agreeCount << " >= " << "peerSize/2=" << peerSize / 2
+                      << "; Go to Commit phase" << std::endl;
+
+            return true;
+        } else {
+            // not enough replies, so cancel
+            return false;
+        }
+    }
+
+    bool commit(const multipaxosTypes::Instance newInstance) {
+        // mark the instance as committed
+        multipaxosTypes::Instance inst = newInstance;
+        inst.status = multipaxosTypes::Status::COMMITTED;
+        instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+
+        std::cout << "[" << thisReplica_
+                  << "] Committed instance: " <<printInstance(inst) << std::endl;
+                std::cout << "[" << thisReplica_
+                  << "] Current replica state: \n" <<instances_to_string() << std::endl;
+
+        // Broadcast commit to majority quorum members
+        mp::CommitReq commitReq;
+
+        // prepare id L.i for this instance
+        mp::InstanceId id;
+        id.set_replica_id(newInstance.id.replica_id);
+        id.set_instance_seq_id(newInstance.id.replicaInstance_id);
+        commitReq.mutable_id()->CopyFrom(id);
+        commitReq.set_sender(thisReplica_);
+        
+        std::map<std::string, mp::CommitReply> commitReplies;
+
+        for (const auto& peerName : majorityQuorumNames_) {
+            std::cout << "[" << thisReplica_
+                      << "] Sending CommitReq message to: "
+                      << peerName
+                      << std::endl;
+            grpc::ClientContext ctx;
+            auto status = peersNameToStub_[peerName]->Commit(
+                &ctx, commitReq, &commitReplies[peerName]);
+            if (!status.ok()) {
+                throw std::runtime_error("Commit RPC failed: " +
+                                        status.error_message());
+            }
+        }
+
+        // No need to wait for commit replies
+        return true;
+    }
+
+
+   public:
+    MultiPaxosReplica(std::string name,
+                  bool is_leader,
+                  const std::map<std::string, std::string>& peer_name_to_addrs)
+        : thisReplica_(std::move(name)), is_leader_(is_leader) {
+
+        // keep a list of peer addresses and stubs
+        for (const auto& [name, addr] : peer_name_to_addrs) {
+            peersNameToStub_[name] = mp::MultiPaxosReplica::NewStub(
+                grpc::CreateChannel(addr, grpc::InsecureChannelCredentials()));
+        }
+
+        // Compute majority size: n/2 + 1 (including itself)
+        const size_t n = peersNameToStub_.size();
+        const size_t majoritySize = n / 2;
+
+        // Initialize the majority quorum
+        size_t count = 0;
+        for (const auto& [peerName, _] : peersNameToStub_) {
+            if (count >= majoritySize) break;
+            majorityQuorumNames_.push_back(peerName);
+            ++count;
+        }
+
+        // Initialize instance map for each replica (peer)
+        for (const auto& [name, addr] : peer_name_to_addrs) {
+            instances[name] = std::vector<struct multipaxosTypes::Instance>();
+        }
+
+        peerSize = peer_name_to_addrs.size();
+    }
+
+    Status ClientWriteReq(ServerContext* /*ctx*/, const mp::WriteReq* req,
+                          mp::WriteResp* resp) override {
+        std::cout << "\n[" << thisReplica_
+                  << "] Received ClientWriteReq: key=" << req->key()
+                  << " value=" << req->value() << std::endl;
+
+        // Create new instance
+        multipaxosTypes::Instance newInstance;
+        newInstance.cmd.action = multipaxosTypes::Command::WRITE;
+        newInstance.cmd.key = req->key();
+        newInstance.cmd.value = req->value();
+        newInstance.status = multipaxosTypes::Status::PREPARED;
+        newInstance.id.replica_id = thisReplica_;
+        newInstance.id.replicaInstance_id = instanceCounter_;
+        instanceCounter_++;
+
+        std::cout << "[" << thisReplica_
+                  << "] Created new instance: " << newInstance.id.replica_id
+                  << "." << newInstance.id.replicaInstance_id << std::endl;
+
+        instances[thisReplica_].push_back(newInstance);
+
+        if (instances[thisReplica_].size() != instanceCounter_) {
+            throw std::runtime_error("RPC failed: instance counter mismatch");
+        }
+
+        // Prepare Phase
+        bool successPrepare = prepare(newInstance);
+        if (!successPrepare) {
             return Status::CANCELLED;
         }
 
+        // Accept Phase
+        bool successAccept = accept(newInstance);
+        if (!successAccept) {
+            return Status::CANCELLED;
+        }
+
+         // Commit Phase
+        bool successCommit = commit(newInstance);
+        if (!successCommit) {
+            return Status::CANCELLED;
+        }
+
+        // Reply to client
+        std::cout << "[" << thisReplica_
+                  << "] Reply to client ClientWriteReq: key=" << req->key()
+                  << " value=" << req->value()
+                  << " write accepted."<< std::endl;
+        resp->set_status("write accepted");
         return Status::OK;
     }
 
@@ -302,6 +405,92 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // prepare the reply message
         resp->set_ok(true);
         resp->set_sender(thisReplica_);
+
+        return Status::OK;
+    }
+
+    Status Accept(ServerContext* /*ctx*/, const mp::AcceptReq* req,
+                     mp::AcceptReply* resp) override {
+        std::cout << "----------------------------\n"
+                  << "[" << thisReplica_
+                  << "] Received AcceptReq for instance "
+                  << req->id().replica_id() << "."
+                  << req->id().instance_seq_id() << std::endl;
+
+        if (req->sender().empty()) {
+            throw std::runtime_error("AcceptReq: replica_id is empty");
+        }
+
+        if (req->sender() != req->id().replica_id()) {
+            throw std::runtime_error(
+                "AcceptReq: sender and proposal mismatch");
+        }
+
+        // construct command from request
+        multipaxosTypes::Command cmd;
+        cmd.action =
+            static_cast<multipaxosTypes::Command::Action>(req->cmd().action());
+        cmd.key = req->cmd().key();
+        cmd.value = req->cmd().value();
+
+        std::cout << "  Command: action=" << req->cmd().action()
+                  << " key=" << req->cmd().key()
+                  << " value=" << req->cmd().value() << std::endl;
+
+        // get instance ID from request
+        multipaxosTypes::InstanceID instanceId;
+        instanceId.replica_id = req->id().replica_id();
+        instanceId.replicaInstance_id = req->id().instance_seq_id();
+
+        // update the instance status locally
+        instances[instanceId.replica_id][instanceId.replicaInstance_id].status = multipaxosTypes::Status::ACCEPTED;
+
+        std::cout << "[" << thisReplica_
+                  << "] Accepted instance: " << instanceId.replica_id
+                  << "." << instanceId.replicaInstance_id << std::endl;
+
+        // prepare the reply message
+        resp->set_ok(true);
+        resp->set_sender(thisReplica_);
+
+        return Status::OK;
+    }
+
+    Status Commit(ServerContext* /*ctx*/, const mp::CommitReq* req,
+                     mp::CommitReply* resp) override {
+        std::cout << "----------------------------\n"
+                  << "[" << thisReplica_
+                  << "] Received CommitReq for instance "
+                  << req->id().replica_id() << "."
+                  << req->id().instance_seq_id() << std::endl;
+
+        if (req->sender().empty()) {
+            throw std::runtime_error("CommitReq: replica_id is empty");
+        }
+
+        if (req->sender() != req->id().replica_id()) {
+            throw std::runtime_error(
+                "CommitReq: sender and proposal mismatch");
+        }
+
+        // construct command from request
+        multipaxosTypes::Command cmd;
+        cmd.action =
+            static_cast<multipaxosTypes::Command::Action>(req->cmd().action());
+        cmd.key = req->cmd().key();
+        cmd.value = req->cmd().value();
+
+        std::cout << "  Command: action=" << req->cmd().action()
+                  << " key=" << req->cmd().key()
+                  << " value=" << req->cmd().value() << std::endl;
+
+        // commit instance
+        instances[req->id().replica_id()][req->id().instance_seq_id()].status = multipaxosTypes::Status::COMMITTED;
+
+        std::cout << "[" << thisReplica_
+                  << "] Committed instance: " <<printInstance(instances[req->id().replica_id()][req->id().instance_seq_id()]) << std::endl;
+                std::cout << "[" << thisReplica_
+                  << "] Current replica state: \n" <<instances_to_string() << std::endl;
 
         return Status::OK;
     }
