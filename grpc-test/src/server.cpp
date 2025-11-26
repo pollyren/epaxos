@@ -12,6 +12,7 @@
 
 #include "../build/generated/epaxos.grpc.pb.h"
 #include "epaxos.pb.h"
+#include "graph.hpp"
 #include "types.hpp"
 
 using grpc::Server;
@@ -156,6 +157,158 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
         return insts;
     }
+
+    // execute the given instance and its dependencies in order
+    std::string execute(const epaxosTypes::Instance newInstance) {
+        // mark the instance as committed
+        epaxosTypes::Instance inst = newInstance;
+        inst.status = epaxosTypes::Status::COMMITTED;
+        instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+
+        std::cout << "[" << thisReplica_
+                  << "] Committed instance: " << printInstance(inst)
+                  << std::endl;
+        std::cout << "[" << thisReplica_ << "] Current replica state: \n"
+                  << instances_to_string() << std::endl;
+
+        Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph =
+            buildDependencyGraphForInstanceID(inst.id);
+
+        // topological sort the dependency graph
+        auto [isDAG, sortedIds] = depGraph.topologicalSort();
+
+        std::cout << "[" << thisReplica_ << "] Execution order for instance "
+                  << inst.id.replica_id << "." << inst.id.replicaInstance_id
+                  << ": ";
+
+        for (const auto& id : sortedIds) {
+            std::cout << id.replica_id << "." << id.replicaInstance_id << " ";
+        }
+        if (sortedIds.size() == 0) {
+            std::cout << "(none) ";
+        }
+        if (isDAG) {
+            std::cout << " (DAG)";
+        } else {
+            std::cout << " (not a DAG, cycle detected) DEBUG needed!";
+        }
+
+        // TODO: handle the case where there is a cycle in the dependency graph
+
+        // assure the first in sorted order is the instance itself
+        assert(sortedIds[0].replica_id == inst.id.replica_id &&
+               sortedIds[0].replicaInstance_id == inst.id.replicaInstance_id);
+
+        // test if all dependency (every other than the first) are committed
+        // If not, spin wait (in real EPaxos, should fetch from other replicas)
+        if (sortedIds.size() > 1) {
+            for (size_t i = 1; i < sortedIds.size(); ++i) {
+                epaxosTypes::Instance depInst = findInstanceById(sortedIds[i]);
+                while (depInst.status != epaxosTypes::Status::COMMITTED) {
+                    std::cout << "[" << thisReplica_
+                              << "] Waiting for dependency instance: "
+                              << printInstance(depInst) << " to be committed."
+                              << std::endl;
+                    // spin wait
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    depInst = findInstanceById(sortedIds[i]);
+                }
+            }
+        }
+        // spin wait over, now execute the commands in order
+
+        std::string result;
+
+        // execute in the reverse sorted order
+        // this is for testing purpose only
+        for (int i = sortedIds.size() - 1; i >= 0; --i) {
+            epaxosTypes::Instance execInst = findInstanceById(sortedIds[i]);
+            std::cout << "\n[" << thisReplica_
+                      << "] Executing instance: " << printInstance(execInst)
+                      << std::endl;
+            // execute the command
+            if (execInst.cmd.action == epaxosTypes::Command::WRITE) {
+                std::cout << "[" << thisReplica_
+                          << "] WRITE executed: key=" << execInst.cmd.key
+                          << " value=" << execInst.cmd.value << std::endl;
+                result = execInst.cmd.value;
+            } else if (execInst.cmd.action == epaxosTypes::Command::READ) {
+                std::cout << "[" << thisReplica_
+                          << "] READ executed: key=" << execInst.cmd.key
+                          << " value=<not implemented>" << std::endl;
+            } else {
+                std::cout << "[" << thisReplica_
+                          << "] Unknown command action: " << execInst.cmd.action
+                          << std::endl;
+            }
+        }
+
+        std::cout << std::endl;
+        return result;
+    }
+
+    Graph<epaxosTypes::InstanceID, InstanceIDHash>
+    buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id) {
+        // Create a graph to represent dependencies
+        Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph(true);
+
+        // Use a queue for BFS traversal
+        std::queue<epaxosTypes::InstanceID> toVisit;
+        std::unordered_set<std::string> visited;
+        toVisit.push(id);
+
+        // BFS to build the graph
+        while (!toVisit.empty()) {
+            epaxosTypes::InstanceID currentId = toVisit.front();
+            toVisit.pop();
+
+            std::string idStr = currentId.replica_id + "." +
+                                std::to_string(currentId.replicaInstance_id);
+            if (visited.find(idStr) != visited.end()) {
+                continue;  // already visited
+            }
+            visited.insert(idStr);
+
+            // Get the instance corresponding to currentId
+            epaxosTypes::Instance currentInst = findInstanceById(currentId);
+            depGraph.addVertex(currentId);
+
+            // Add edges for dependencies
+            for (const auto& depId : currentInst.attr.deps) {
+                depGraph.addVertex(depId);
+                depGraph.addEdge(currentId, depId);
+                toVisit.push(depId);
+            }
+        }
+
+        // print the detail of the dependency graph
+
+        std::cout << "[" << thisReplica_ << "] Dependency graph for instance "
+                  << id.replica_id << "." << id.replicaInstance_id << " built."
+                  << std::endl;
+
+        // Print the graph
+        std::cout << "[" << thisReplica_
+                  << "] Dependency Graph Edges:" << std::endl;
+        for (const auto& vertexIdStr : visited) {
+            // parse vertexIdStr to InstanceID
+            auto pos = vertexIdStr.find('.');
+            std::string rid = vertexIdStr.substr(0, pos);
+            int iid = std::stoi(vertexIdStr.substr(pos + 1));
+            epaxosTypes::InstanceID vertexId{rid, iid};
+
+            const auto& currentInst = findInstanceById(vertexId);
+            for (const auto& depId : currentInst.attr.deps) {
+                std::cout << "  " << vertexId.replica_id << "."
+                          << vertexId.replicaInstance_id << " -> "
+                          << depId.replica_id << "." << depId.replicaInstance_id
+                          << std::endl;
+            }
+        }
+
+        return depGraph;
+    }
+
     void commit(const epaxosTypes::Instance newInstance) {
         // mark the instance as committed
         epaxosTypes::Instance inst = newInstance;
@@ -254,6 +407,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   const std::vector<std::string>& fast_peer_names,
                   const std::vector<std::string>& slow_peer_names)
         : thisReplica_(std::move(name)) {
+        peerSize = peer_name_to_addrs.size();
         // keep a list of peer addresses and stubs
         for (const auto& [name, addr] : peer_name_to_addrs) {
             peersNameToStub_[name] = demo::EPaxosReplica::NewStub(
@@ -384,6 +538,19 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                       << "; Go to fast path" << std::endl;
             // commit the instance
             commit(newInstance);
+
+            // execute the instance
+            // if write, skip execution and return success
+            std::string value;
+            if (newInstance.cmd.action == epaxosTypes::Command::WRITE) {
+                std::cout << "[" << thisReplica_
+                          << "] WRITE command detected for instance: "
+                          << printInstance(newInstance)
+                          << "; Skipping execution." << std::endl;
+                value = "<suceessful>";
+            } else {
+                value = execute(newInstance);
+            }
             resp->set_status("write accepted");
             return Status::OK;
         } else {
