@@ -23,14 +23,14 @@ message PrepareReq {
 message PrepareReply {
   InstanceId id = 1;
   bool ok = 2;
-  repeated Command cmd = 3;
+  Command cmd = 3;
   string sender = 4;
 }
 
 message AcceptReq {
   int32 leader_id = 1;                 
   InstanceId id = 2;
-  repeated Command cmd = 3;
+  Command cmd = 3;
   string sender = 4;
 }
 
@@ -43,7 +43,7 @@ message AcceptReply {
 message CommitReq {
   int32 leader_id = 1;                 
   InstanceId id = 2;
-  repeated Command cmd = 3;
+  Command cmd = 3;
   string sender = 4;
 }
 
