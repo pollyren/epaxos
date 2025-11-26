@@ -163,7 +163,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return insts;
     }
 
-    void execute(const epaxosTypes::Instance newInstance){
+    //execute the given instance and its dependencies in order
+    std::string execute(const epaxosTypes::Instance newInstance){
         
         //mark the instance as committed
         epaxosTypes::Instance inst = newInstance;
@@ -201,7 +202,28 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         assert(sortedIds[0].replica_id == inst.id.replica_id &&
                sortedIds[0].replicaInstance_id == inst.id.replicaInstance_id);
 
+
+        //test if all dependency (every other than the first) are committed
+        //If not, spin wait (in real EPaxos, should fetch from other replicas)
+        if(sortedIds.size() > 1){
+            for (size_t i =1 ; i < sortedIds.size() ; ++i){
+                epaxosTypes::Instance depInst = findInstanceById(sortedIds[i]);
+                while(depInst.status != epaxosTypes::Status::COMMITTED){
+                    std::cout << "[" << thisReplica_
+                      << "] Waiting for dependency instance: " << printInstance(depInst) << " to be committed." << std::endl;
+                    //spin wait
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    depInst = findInstanceById(sortedIds[i]);
+                }
+            }
+        }
+        //spin wait over, now execute the commands in order
+
+
+        std::string result;
+        
         //execute in the reverse sorted order
+        //this is for testing purpose only
         for(int i = sortedIds.size() -1 ; i >=0 ; --i){
             epaxosTypes::Instance execInst = findInstanceById(sortedIds[i]);
             std::cout << "\n[" << thisReplica_
@@ -211,6 +233,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                 std::cout << "[" << thisReplica_
                   << "] WRITE executed: key=" << execInst.cmd.key
                   << " value=" << execInst.cmd.value << std::endl;
+                  result = execInst.cmd.value;
             } else if (execInst.cmd.action == epaxosTypes::Command::READ){
                 std::cout << "[" << thisReplica_
                   << "] READ executed: key=" << execInst.cmd.key
@@ -223,6 +246,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
 
         std::cout << std::endl;
+        return result;
 
     }
 
@@ -424,7 +448,18 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   << "." << newInstance.id.replicaInstance_id << 
                   "; Go to fast path" << std::endl;
             //commit the instance
-            execute(newInstance);
+        
+            //execute the instance
+            //if write, skip execution and return success
+
+            std::string value;
+            if(newInstance.cmd.action == epaxosTypes::Command::WRITE){
+                std::cout << "[" << thisReplica_
+                      << "] WRITE command detected for instance: " << printInstance(newInstance) << "; Skipping execution." << std::endl;
+                    value = "<suceessful>";
+            } else {
+                value = execute(newInstance);
+            }
             resp->set_status("write accepted");
             return Status::OK;
         } else {
