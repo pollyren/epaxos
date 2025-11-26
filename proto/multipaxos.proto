@@ -1,0 +1,114 @@
+syntax = "proto3";
+package mp;
+
+enum Action {
+  READ = 0; // proto3 enums MUST have a 0 value
+  WRITE  = 1;
+  DELETE = 2;
+  NOOP = 3;
+  DUMMY = 4;
+}
+
+message InstanceId { string replica_id = 1; int64 instance_seq_id = 2; }
+
+message Command { Action action = 1; string key = 2; string value = 3; } 
+
+message PrepareReq {
+  int32 leader_id = 1;                 
+  InstanceId id = 2;
+  string sender = 3;
+  Command cmd = 4;
+}
+
+message PrepareReply {
+  InstanceId id = 1;
+  bool ok = 2;
+  Command cmd = 3;
+  string sender = 4;
+}
+
+message AcceptReq {
+  int32 leader_id = 1;                 
+  InstanceId id = 2;
+  Command cmd = 3;
+  string sender = 4;
+}
+
+message AcceptReply {
+  InstanceId id = 1;
+  bool ok = 2;
+  string sender = 3;
+}
+
+message CommitReq {
+  int32 leader_id = 1;                 
+  InstanceId id = 2;
+  Command cmd = 3;
+  string sender = 4;
+}
+
+message CommitReply {} // empty ack
+
+message WriteReq {
+  string key = 1;
+  bytes  value = 2;
+}
+
+message WriteResp {
+  string status = 1;
+}
+
+//for testing
+message GetStateReq {
+}
+
+message GetStateResp {
+  string state = 1;
+}
+
+
+// MultiPaxos Replica Service
+service MultiPaxosReplica {
+
+    // Client -> Replica
+  rpc ClientTest(WriteReq) returns (WriteResp);
+  rpc ClientWriteReq(WriteReq) returns (WriteResp);
+  rpc ClientGetStateReq(GetStateReq) returns (GetStateResp);
+
+
+    // Replica -> Replica
+  rpc Prepare(PrepareReq) returns (PrepareReply);
+  rpc Accept(AcceptReq) returns (AcceptReply);
+  rpc Commit(CommitReq) returns (CommitReply);
+}
+
+service Echo {
+  // Client -> Server
+  rpc Ping (PingReq) returns (PingResp) {}
+  // Server <-> Server broadcast/fanout
+  rpc Broadcast (BcastReq) returns (BcastResp) {}
+}
+
+message PingReq {
+  string msg = 1;
+  int32  id  = 2;
+  bool   fanout = 3; // when true, server will broadcast to its peers
+  string uuid   = 4; // optional: client-provided id; server generates if empty
+}
+
+message PingResp {
+  string reply = 1;                 // e.g., "pong: <msg>"
+  string from  = 2;                 // which server handled the call
+  repeated string broadcasted_to = 3; // list of peer acks
+}
+
+message BcastReq {
+  string msg    = 1; // payload
+  string origin = 2; // who started the broadcast (server name)
+  string uuid   = 3; // unique id for de-duplication
+  int32  ttl    = 4; // hop budget; decrement on forward; stop at 0
+}
+
+message BcastResp {
+  string ack_from = 1; // which server processed this
+}
