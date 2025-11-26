@@ -1,27 +1,24 @@
 // Graph.hpp
 #pragma once
 
-#include <unordered_map>
-#include <vector>
 #include <algorithm>
 #include <functional>
-#include <queue>   
+#include <queue>
+#include <unordered_map>
+#include <vector>
 
-template <typename A,
-          typename Hash = std::hash<A>,
-          typename Eq   = std::equal_to<A>>
+template <typename A, typename Hash = std::hash<A>,
+          typename Eq = std::equal_to<A>>
 class Graph {
-public:
+   public:
     using Vertex = A;
 
-    explicit Graph(bool directed = false)
-        : directed_(directed) {}
+    explicit Graph(bool directed = false) : directed_(directed) {}
 
     bool addVertex(const Vertex& v) {
         auto [it, inserted] = adj_.try_emplace(v);
         return inserted;
     }
-
 
     bool addEdge(const Vertex& u, const Vertex& v) {
         addVertex(u);
@@ -31,7 +28,7 @@ public:
         if (std::find(nbrsU.begin(), nbrsU.end(), v) == nbrsU.end()) {
             nbrsU.push_back(v);
         } else {
-            return false; // edge already exists
+            return false;  // edge already exists
         }
 
         if (!directed_) {
@@ -44,7 +41,7 @@ public:
         return true;
     }
 
-      // ------------------------------
+    // ------------------------------
     // Topological sort (Kahn's algorithm)
     // Returns {isDAG, order}
     // - isDAG == false  -> there is a cycle, order is partial
@@ -60,7 +57,8 @@ public:
                 indegree[u] = 0;
             }
             for (const auto& v : neighbors) {
-                ++indegree[v];  // if v not present, this creates it with 0 then increments
+                ++indegree[v];  // if v not present, this creates it with 0 then
+                                // increments
             }
         }
 
@@ -97,12 +95,8 @@ public:
         bool isDAG = (order.size() == indegree.size());
         return {isDAG, std::move(order)};
     }
-    
-private:
-    bool directed_;
-    std::unordered_map<Vertex,
-                       std::vector<Vertex>,
-                       Hash,
-                       Eq> adj_;
-};
 
+   private:
+    bool directed_;
+    std::unordered_map<Vertex, std::vector<Vertex>, Hash, Eq> adj_;
+};
