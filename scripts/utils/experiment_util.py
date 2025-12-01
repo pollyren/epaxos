@@ -556,7 +556,6 @@ def run_experiment(config_file, client_config_idx, executor):
 
         kill_servers(config, executor)
         kill_clients(config, executor)
-        kill_masters(config, executor)
 
         if is_exp_remote(config):
             copy_binaries_to_nfs(config, executor)
@@ -581,11 +580,6 @@ def run_experiment(config_file, client_config_idx, executor):
             master_threads = None
             server_threads = None
             while not servers_alive and retries <= config['max_retries']:
-                if is_using_masters(config):
-                    kill_masters(config, executor)
-                    master_threads = start_masters(config, local_exp_directory,
-                                                   remote_exp_directory, i)
-                
                 kill_servers(config, executor)
                 time.sleep(2)
                 
@@ -613,10 +607,6 @@ def run_experiment(config_file, client_config_idx, executor):
             for server_thread in server_threads:
                 server_thread.terminate()
             kill_servers(config, executor, '-15')
-            if is_using_masters(config):
-                for master_thread in master_threads:
-                    master_thread.terminate()
-                kill_masters(config, executor)
         return executor.submit(collect_and_calculate, config,
                                client_config_idx, remote_exp_directory, local_out_directory,
                                executor)
