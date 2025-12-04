@@ -1,15 +1,14 @@
 #include <iostream>
 #include <string>
 
-// Declare functions implemented in mp-client.cpp and ep-client.cpp:
 int run_mp_client(int argc, char** argv);
 int run_ep_client(int argc, char** argv);
 
 int main(int argc, char** argv) {
     // Usage: ./client mp <workload-file>
 
-    if (argc < 2) {
-        std::cerr << "Usage: ./server <mp|e> [workload_file]\n";
+    if (argc < 3) {
+        std::cerr << "Usage: ./server <mp|e> <workload_file>\n";
         return 1;
     }
 

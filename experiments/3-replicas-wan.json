@@ -187,5 +187,6 @@
   "run_locally": false,
   "default_remote_shell": "bash",
   "client_disable_gc": true,
-  "server_disable_gc": true
+  "server_disable_gc": true,
+  "workload_file": "workload.csv"
 }

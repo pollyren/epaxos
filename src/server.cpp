@@ -2,7 +2,6 @@
 #include <string>
 #include "utils.h"
 
-// Declare functions implemented in mp-server.cpp and ep-server.cpp:
 int run_mp_server(int argc, char** argv);
 int run_ep_server(int argc, char** argv);
 

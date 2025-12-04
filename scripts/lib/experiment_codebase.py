@@ -7,7 +7,7 @@ from utils.remote_util import *
 class ExperimentCodebase(abc.ABC):
 
     @abc.abstractmethod
-    def get_client_cmd(self, config, i, j, k, run, local_exp_directory,
+    def get_client_cmd(self, config, i, k, run, local_exp_directory,
                        remote_exp_directory):
         pass
 

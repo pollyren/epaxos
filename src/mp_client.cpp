@@ -59,13 +59,13 @@ static mp::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
 }
 
 int run_mp_client(int argc, char **argv) {
-    if (argc < 2) {
-        std::cerr << "Usage: ./client <workload_file>\n";
+    if (argc < 3) {
+        std::cerr << "Usage: ./client <mp|e> <workload_file>\n";
         return 1;
     }
 
     workload::CSVParser parser;
-    auto operations = parser.parse(argv[1]);
+    auto operations = parser.parse(argv[2]);
 
     for (const auto& op : operations) {
         // create channel to target server
