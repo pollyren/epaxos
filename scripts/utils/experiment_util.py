@@ -10,28 +10,9 @@ from utils.git_util import *
 from utils.eval_util import *
 from lib.wrappers import *
 
-
-def is_using_masters(config):
-    return "use_masters" in config and config["use_masters"]
-
-
 def collect_exp_data(config, remote_exp_directory, local_directory_base, executor):
     futures = []
     remote_directory = os.path.join(remote_exp_directory, config["out_directory_name"])
-
-    if is_using_masters(config):
-        coordinator_host = get_coordinator_host(config)
-        futures.append(executor.submit(copy_remote_directory_to_local,
-                                       os.path.join(local_directory_base, "coordinator"),
-                                       config["emulab_user"], coordinator_host, remote_directory,
-                                       file_filter="coordinator-*.*"))
-
-        for i in range(config["num_shards"]):
-            master_host = get_master_host(config, i)
-            futures.append(executor.submit(copy_remote_directory_to_local,
-                                           os.path.join(local_directory_base, "master-{}".format(i)),
-                                           config["emulab_user"], master_host, remote_directory,
-                                           file_filter="master-{}-*.*".format(i)))
 
     for shard_idx in range(len(config["shards"])):
         shard = config["shards"][shard_idx]
@@ -39,9 +20,9 @@ def collect_exp_data(config, remote_exp_directory, local_directory_base, executo
             server_host = get_replica_host(config, shard_idx, replica_idx)
 
             futures.append(executor.submit(copy_remote_directory_to_local,
-                                           os.path.join(local_directory_base, "server-{}".format(shard_idx)),
+                                           os.path.join(local_directory_base, "server-{}".format(replica_idx)),
                                            config["emulab_user"], server_host, remote_directory,
-                                           file_filter="server-{}-{}-*.*".format(shard_idx, replica_idx)))
+                                           file_filter="server-{}-*.*".format(replica_idx)))
 
     for client in config["clients"]:
         client_host = get_client_host(config, client)
@@ -82,34 +63,6 @@ def kill_clients_no_config(config, executor):
 
 def kill_clients(config, executor):
     kill_clients_no_config(config, executor)
-
-
-def kill_masters(config, executor):
-    n_shards = config["num_shards"]
-
-    futures = []
-    for i in range(n_shards):
-        master_host = get_master_host(config, i)
-        if is_exp_remote(config):
-            futures.append(executor.submit(kill_remote_process_by_name,
-                                           config["master_bin_name"],
-                                           config["emulab_user"],
-                                           master_host, "-9"))
-        else:
-            futures.append(executor.submit(kill_process_by_name,
-                                           config["master_bin_name"], "-9"))
-
-    if is_exp_remote(config):
-        coordinator_host = get_coordinator_host(config)
-        futures.append(executor.submit(kill_remote_process_by_name,
-                                       config["coordinator_bin_name"],
-                                       config["emulab_user"],
-                                       coordinator_host, "-9"))
-    else:
-        futures.append(executor.submit(kill_process_by_name,
-                                       config["coordinator_bin_name"], "-9"))
-
-    concurrent.futures.wait(futures)
 
 
 def terminate_clients_on_timeout(timeout, cond, client_ssh_threads):
@@ -229,162 +182,6 @@ def start_servers(config, local_exp_directory, remote_exp_directory, run):
 
     time.sleep(1)
     return server_threads
-
-
-def start_coordinator(config, local_exp_directory, remote_exp_directory, run):
-    if is_exp_remote(config):
-        exp_directory = remote_exp_directory
-        path_to_coordinator_bin = os.path.join(config["base_remote_bin_directory_nfs"],
-                                               config["bin_directory_name"],
-                                               config["coordinator_bin_name"])
-    else:
-        exp_directory = local_exp_directory
-        path_to_coordinator_bin = os.path.join(config["src_directory"],
-                                               config["bin_directory_name"],
-                                               config["coordinator_bin_name"])
-                                                           
-        out_dir = os.path.join(local_exp_directory,
-                               config["out_directory_name"],
-                               "coordinator")
-        os.makedirs(out_dir, exist_ok=True)
-
-    n_shards = config["num_shards"]
-    masters_hosts = []
-    for i in range(n_shards):
-        master_host = get_master_host(config, i)
-        masters_hosts.append(master_host)
-
-    coordinator_host = get_coordinator_host(config)
-    coordinator_port = get_coordinator_port(config)
-
-    coordinator_command = ' '.join([str(x) for x in [path_to_coordinator_bin,
-                                                     "-port", coordinator_port,
-                                                     "-N", n_shards,
-                                                     "-ips", ','.join(masters_hosts)]])
-
-    if is_exp_remote(config):
-        stdout_file = os.path.join(exp_directory,
-                                   config["out_directory_name"],
-                                   "coordinator-stdout-{}.log".format(run))
-
-        stderr_file = os.path.join(exp_directory,
-                                   config["out_directory_name"],
-                                   "coordinator-stderr-{}.log".format(run))
-    else:
-        stdout_file = os.path.join(exp_directory,
-                                   config["out_directory_name"],
-                                   "coordinator",
-                                   "coordinator-stdout-{}.log".format(run))
-
-        stderr_file = os.path.join(exp_directory,
-                                   config["out_directory_name"],
-                                   "coordinator",
-                                   "coordinator-stderr-{}.log".format(run))
-
-
-    if is_using_tcsh(config):
-        coordinator_command = tcsh_redirect_output_to_files(coordinator_command,
-                                                            stdout_file, stderr_file)
-    else:
-        coordinator_command = '%s 1> %s 2> %s' % (coordinator_command,
-                                                  stdout_file, stderr_file)
-
-    coordinator_command = 'cd %s; %s' % (exp_directory, coordinator_command)
-
-    if is_exp_remote(config):
-        coordinator_thread = run_remote_command_async(coordinator_command,
-                                                      config["emulab_user"],
-                                                      coordinator_host, detach=False)
-    else:
-        coordinator_thread = run_local_command_async(coordinator_command)
-
-    return coordinator_thread
-
-
-def start_masters(config, local_exp_directory, remote_exp_directory, run):
-    master_threads = []
-
-    master_threads.append(start_coordinator(config, local_exp_directory,
-                                            remote_exp_directory, run))
-
-    if is_exp_remote(config):
-        exp_directory = remote_exp_directory
-        path_to_master_bin = os.path.join(
-            config['base_remote_bin_directory_nfs'],
-            config['bin_directory_name'], config['master_bin_name'])
-    else:
-        exp_directory = local_exp_directory
-        path_to_master_bin = os.path.join(
-            config['src_directory'],
-            config['bin_directory_name'], config['master_bin_name'])
-
-    n_shards = config["num_shards"]
-    shards = config["shards"]
-    assert(len(shards) == n_shards)
-
-    for i in range(n_shards):
-        if is_exp_local(config):
-            out_dir = os.path.join(local_exp_directory,
-                config["out_directory_name"],
-                "master-%d" % (i))
-            os.makedirs(out_dir, exist_ok=True)
-
-        coordinator_host = get_coordinator_host(config)
-        coordinator_port = get_coordinator_port(config)
-        master_host = get_master_host(config, i)
-        master_port = get_master_port(config, i)
-
-        n_replicas = len(shards[i])
-        replica_hosts = []
-        for j in range(n_replicas):
-            replica_hosts.append(get_replica_host(config, i, j, full=False))
-
-        master_command = ' '.join([str(x) for x in [path_to_master_bin,
-                                                    '-addr', master_host,
-                                                    '-port', master_port,
-                                                    '-caddr', coordinator_host,
-                                                    '-cport', coordinator_port,
-                                                    '-N', n_replicas,
-                                                    '-ips', ','.join(replica_hosts),
-                                                    '-nshrds', n_shards,
-                                                    '-shardId', i]])
-
-        if is_exp_remote(config):
-            stdout_file = os.path.join(exp_directory,
-                                       config['out_directory_name'],
-                                       'master-%d-stdout-%d.log' % (i, run))
-
-            stderr_file = os.path.join(exp_directory,
-                                       config['out_directory_name'],
-                                       'master-%d-stderr-%d.log' % (i, run))
-        else:
-            stdout_file = os.path.join(exp_directory,
-                                       config['out_directory_name'],
-                                       'master-%d' % (i),
-                                       'master-%d-stdout-%d.log' % (i, run))
-
-            stderr_file = os.path.join(exp_directory,
-                                       config['out_directory_name'],
-                                       'master-%d' % (i),
-                                       'master-%d-stderr-%d.log' % (i, run))
-
-        if is_using_tcsh(config):
-            master_command = tcsh_redirect_output_to_files(master_command,
-                                                           stdout_file, stderr_file)
-        else:
-            master_command = '%s 1> %s 2> %s' % (master_command,
-                                                 stdout_file, stderr_file)
-
-        master_command = 'cd %s; %s' % (exp_directory, master_command)
-
-        if is_exp_remote(config):
-            master_threads.append(run_remote_command_async(master_command,
-                                                           config['emulab_user'],
-                                                           master_host, detach=False))
-        else:
-            master_threads.append(run_local_command_async(master_command))
-
-    return master_threads
 
 
 SERVERS_SETUP = {}
