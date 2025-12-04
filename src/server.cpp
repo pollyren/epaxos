@@ -497,18 +497,66 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         preAcceptReq.set_sender(thisReplica_);
 
         //  send PreAccept to all fast quorum members
-        std::map<std::string, demo::PreAcceptReply> preAcceptReplies;
-        for (const auto& peerName : fastQuorumNames_) {
+        std::cout << "----------------------------\n[" << thisReplica_
+                  << "] Sending PreAccept RPCs: " << std::endl;
+
+        grpc::CompletionQueue cq;
+        struct AsyncCall {
             grpc::ClientContext ctx;
-            auto status = peersNameToStub_[peerName]->PreAccept(
-                &ctx, preAcceptReq, &preAcceptReplies[peerName]);
-            if (!status.ok()) {
-                throw std::runtime_error("RPC failed: " +
-                                         status.error_message());
-            }
+            demo::PreAcceptReply reply;
+            grpc::Status status;
+
+            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::PreAcceptReply>> rpc;
+        };
+
+        // create a mapping from peer name to its async call
+        std::map<std::string, std::unique_ptr<AsyncCall>> calls;
+
+        // now send async PreAccept RPCs to all fast quorum members
+        for (const auto& peerName : fastQuorumNames_) {
+            auto call = std::make_unique<AsyncCall>();
+
+            call->rpc = peersNameToStub_[peerName]->AsyncPreAccept(
+                &call->ctx, preAcceptReq, &cq);
+
+            // request notification when the operation finishes asynchronously
+            call->rpc->Finish(&call->reply, &call->status, (void*)peerName.data());
+
+            // store the call in the map
+            calls.emplace(peerName, std::move(call));
+
+            std::cout << "  Sent PreAccept RPC to " << peerName << std::endl;
         }
 
-        std::cout << "----------------------------\n [" << thisReplica_
+        // collect all preAccept replies
+        int remaining = fastQuorumNames_.size();
+        std::map<std::string, demo::PreAcceptReply> preAcceptReplies;
+
+        while (remaining > 0) {
+            void* tag;
+            bool ok = false;
+
+            // wait for the next result from the completion queue
+            cq.Next(&tag, &ok);
+
+            if (!ok) {
+                // RPC stream broken
+                throw std::runtime_error("RPC stream error");
+            }
+
+            std::string peerName = static_cast<const char*>(tag);
+            auto& call = calls[peerName];
+
+            if (!call->status.ok()) {
+                throw std::runtime_error(
+                    "RPC failed from " + peerName + ": " + call->status.error_message());
+            }
+
+            preAcceptReplies[peerName] = call->reply;
+            remaining--;
+        }
+
+        std::cout << "----------------------------\n[" << thisReplica_
                   << "] PreAccept Reply: " << std::endl;
 
         int agreeCount = 0;
