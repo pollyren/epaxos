@@ -349,7 +349,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             grpc::ClientContext ctx;
             demo::CommitReply reply;
             grpc::Status status;
-            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::CommitReply>> rpc;
+            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::CommitReply>>
+                rpc;
         };
 
         for (const auto& [peerName, stub] : peersNameToStub_) {
@@ -399,7 +400,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             demo::AcceptReply reply;
             grpc::Status status;
 
-            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::AcceptReply>> rpc;
+            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::AcceptReply>>
+                rpc;
         };
 
         // create a mapping from peer name to its async call
@@ -413,7 +415,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                 &call->ctx, acceptReq, &cq);
 
             // request notification when the operation finishes asynchronously
-            call->rpc->Finish(&call->reply, &call->status, (void*)peerName.data());
+            call->rpc->Finish(&call->reply, &call->status,
+                              (void*)peerName.data());
 
             // store the call in the map
             calls.emplace(peerName, std::move(call));
@@ -441,8 +444,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             auto& call = calls[peerName];
 
             if (!call->status.ok()) {
-                throw std::runtime_error(
-                    "RPC failed from " + peerName + ": " + call->status.error_message());
+                throw std::runtime_error("RPC failed from " + peerName + ": " +
+                                         call->status.error_message());
             }
 
             acceptReplies[peerName] = call->reply;
@@ -573,7 +576,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             demo::PreAcceptReply reply;
             grpc::Status status;
 
-            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::PreAcceptReply>> rpc;
+            std::unique_ptr<
+                grpc::ClientAsyncResponseReader<demo::PreAcceptReply>>
+                rpc;
         };
 
         // create a mapping from peer name to its async call
@@ -587,7 +592,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                 &call->ctx, preAcceptReq, &cq);
 
             // request notification when the operation finishes asynchronously
-            call->rpc->Finish(&call->reply, &call->status, (void*)peerName.data());
+            call->rpc->Finish(&call->reply, &call->status,
+                              (void*)peerName.data());
 
             // store the call in the map
             calls.emplace(peerName, std::move(call));
@@ -615,8 +621,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             auto& call = calls[peerName];
 
             if (!call->status.ok()) {
-                throw std::runtime_error(
-                    "RPC failed from " + peerName + ": " + call->status.error_message());
+                throw std::runtime_error("RPC failed from " + peerName + ": " +
+                                         call->status.error_message());
             }
 
             preAcceptReplies[peerName] = call->reply;
