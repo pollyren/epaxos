@@ -60,7 +60,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         std::string res;
         for(const auto& [replica, instVec] : instances ){
             for(const auto& instance : instVec){
-                res+= "  - " +printInstance(instance) + "\n";
+                res+= "  - " +printInstance(instance);
             }
         }
         return res;
@@ -97,19 +97,64 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         prepareReq.set_sender(thisReplica_);
 
         //  send Prepare messages to all majority quorum members
-        std::map<std::string, mp::PrepareReply> prepareReplies;
-        for (const auto& peerName : majorityQuorumNames_) {
-            std::cout << "[" << thisReplica_
-                      << "] Sending PrepareReq message to: "
-                      << peerName
-                      << std::endl;
+        std::cout << "----------------------------\n[" << thisReplica_
+                  << "] Sending Prepare RPCs: " << std::endl;
+
+        grpc::CompletionQueue cq;
+        struct AsyncCall {
             grpc::ClientContext ctx;
-            auto status = peersNameToStub_[peerName]->Prepare(
-                &ctx, prepareReq, &prepareReplies[peerName]);
-            if (!status.ok()) {
-                throw std::runtime_error("Prepare RPC failed: " +
-                                         status.error_message());
+            mp::PrepareReply reply;
+            grpc::Status status;
+            std::unique_ptr<grpc::ClientAsyncResponseReader<mp::PrepareReply>>
+                rpc;
+        };
+
+        // create a mapping from peer name to its async call
+        std::map<std::string, std::unique_ptr<AsyncCall>> calls;
+
+        // now send async Prepare RPCs to all majority quorum members
+        for (const auto& peerName : majorityQuorumNames_) {
+            auto call = std::make_unique<AsyncCall>();
+
+            call->rpc = peersNameToStub_[peerName]->AsyncPrepare(
+                &call->ctx, prepareReq, &cq);
+
+            // request notification when the operation finishes asynchronously
+            call->rpc->Finish(&call->reply, &call->status,
+                              (void*)peerName.data());
+
+            // store the call in the map
+            calls.emplace(peerName, std::move(call));
+
+            std::cout << "  Sent Prepare RPC to " << peerName << std::endl;
+        }
+
+        // collect all prepare replies
+        int remaining = majorityQuorumNames_.size();
+        std::map<std::string, mp::PrepareReply> prepareReplies;
+
+        while (remaining > 0) {
+            void* tag;
+            bool ok = false;
+
+            // wait for the next result from the completion queue
+            cq.Next(&tag, &ok);
+
+            if (!ok) {
+                // RPC stream broken
+                throw std::runtime_error("RPC stream error");
             }
+
+            std::string peerName = static_cast<const char*>(tag);
+            auto& call = calls[peerName];
+
+            if (!call->status.ok()) {
+                throw std::runtime_error("RPC failed from " + peerName + ": " +
+                                         call->status.error_message());
+            }
+
+            prepareReplies[peerName] = call->reply;
+            remaining--;
         }
 
         std::cout << "----------------------------\n [" << thisReplica_
@@ -120,10 +165,10 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             std::cout << " From: " << name << "  Reply Details: "
                       << " ok=" << (reply.ok() ? "true" : "false")
                       << std::endl;
-            
+
             if (reply.ok()) {
                 agreeCount++;
-            }          
+            }
             if (agreeCount >= (peerSize / 2)) {
                 break;
             }
@@ -170,21 +215,67 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
 
         //  send Accept messages to all majority quorum members
-        std::map<std::string, mp::AcceptReply> acceptReplies;
+        std::cout << "----------------------------\n[" << thisReplica_
+                  << "] Sending Accept RPCs: " << std::endl;
 
+        grpc::CompletionQueue cq;
+        struct AsyncCall {
+            grpc::ClientContext ctx;
+            mp::AcceptReply reply;
+            grpc::Status status;
+            std::unique_ptr<grpc::ClientAsyncResponseReader<mp::AcceptReply>>
+                rpc;
+        };
+
+        // create a mapping from peer name to its async call
+        std::map<std::string, std::unique_ptr<AsyncCall>> calls;
+
+        // now send async Accept RPCs to all majority quorum members
         for (const auto& peerName : majorityQuorumNames_) {
+            auto call = std::make_unique<AsyncCall>();
+
+            call->rpc = peersNameToStub_[peerName]->AsyncAccept(
+                &call->ctx, acceptReq, &cq);
+
+            // request notification when the operation finishes asynchronously
+            call->rpc->Finish(&call->reply, &call->status,
+                              (void*)peerName.data());
+
+            // store the call in the map
+            calls.emplace(peerName, std::move(call));
+
             std::cout << "[" << thisReplica_
                       << "] Sending AcceptReq message to: "
                       << peerName
                       << std::endl;
+        }
 
-            grpc::ClientContext ctx;
-            auto status = peersNameToStub_[peerName]->Accept(
-                &ctx, acceptReq, &acceptReplies[peerName]);
-            if (!status.ok()) {
-                throw std::runtime_error("Accept RPC failed: " +
-                                        status.error_message());
+        // collect all accept replies
+        int remaining = majorityQuorumNames_.size();
+        std::map<std::string, mp::AcceptReply> acceptReplies;
+
+        while (remaining > 0) {
+            void* tag;
+            bool ok = false;
+
+            // wait for the next result from the completion queue
+            cq.Next(&tag, &ok);
+
+            if (!ok) {
+                // RPC stream broken
+                throw std::runtime_error("RPC stream error");
             }
+
+            std::string peerName = static_cast<const char*>(tag);
+            auto& call = calls[peerName];
+
+            if (!call->status.ok()) {
+                throw std::runtime_error("RPC failed from " + peerName + ": " +
+                                         call->status.error_message());
+            }
+
+            acceptReplies[peerName] = call->reply;
+            remaining--;
         }
 
         std::cout << "----------------------------\n [" << thisReplica_
@@ -195,10 +286,10 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             std::cout << " From: " << name << "  Reply Details: "
                     << " ok=" << (reply.ok() ? "true" : "false")
                     << std::endl;
-            
+
             if (reply.ok()) {
                 agreeCount++;
-            }          
+            }
             if (agreeCount >= (peerSize / 2)) {
                 break;
             }
@@ -243,21 +334,36 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         id.set_instance_seq_id(newInstance.id.replicaInstance_id);
         commitReq.mutable_id()->CopyFrom(id);
         commitReq.set_sender(thisReplica_);
-        
-        std::map<std::string, mp::CommitReply> commitReplies;
 
+        // send Commit RPCs asynchronously to all majority quorum members
+        std::cout << "----------------------------\n[" << thisReplica_
+                  << "] Sending Commit RPCs: " << std::endl;
+
+        grpc::CompletionQueue cq;
+        struct AsyncCall {
+            grpc::ClientContext ctx;
+            mp::CommitReply reply;
+            grpc::Status status;
+            std::unique_ptr<grpc::ClientAsyncResponseReader<mp::CommitReply>>
+                rpc;
+        };
+
+        // create a mapping from peer name to its async call
+        std::map<std::string, std::unique_ptr<AsyncCall>> calls;
+
+        // now send async Accept RPCs to all majority quorum members
         for (const auto& peerName : majorityQuorumNames_) {
+            // allocate an async call object
+            auto* call = new AsyncCall;
+
+            // send the commit RPC
+            call->rpc = peersNameToStub_[peerName]->AsyncCommit(&call->ctx, commitReq, &cq);
+            call->rpc->Finish(&call->reply, &call->status, call);
+
             std::cout << "[" << thisReplica_
                       << "] Sending CommitReq message to: "
                       << peerName
                       << std::endl;
-            grpc::ClientContext ctx;
-            auto status = peersNameToStub_[peerName]->Commit(
-                &ctx, commitReq, &commitReplies[peerName]);
-            if (!status.ok()) {
-                throw std::runtime_error("Commit RPC failed: " +
-                                        status.error_message());
-            }
         }
 
         // No need to wait for commit replies
@@ -728,7 +834,7 @@ int main(int argc, char** argv) {
         }
 
         std::cout << "[" << name << "] listening on MultiPaxos replica " << addr
-                  << " peers=" << map_to_string(peer_name_to_addr) 
+                  << " peers=" << map_to_string(peer_name_to_addr)
                   << " is_leader=" << std::boolalpha << is_leader
                   << std::endl;
         server->Wait();
