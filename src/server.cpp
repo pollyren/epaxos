@@ -371,15 +371,63 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         acceptReq.set_sender(thisReplica_);
 
         // send Accept to all slow quorum members
-        std::map<std::string, demo::AcceptReply> acceptReplies;
-        for (const auto& peerName : slowQuorumNames_) {
+        std::cout << "----------------------------\n[" << thisReplica_
+                  << "] Sending Accept RPCs: " << std::endl;
+
+        grpc::CompletionQueue cq;
+        struct AsyncCall {
             grpc::ClientContext ctx;
-            auto status = peersNameToStub_[peerName]->Accept_(
-                &ctx, acceptReq, &acceptReplies[peerName]);
-            if (!status.ok()) {
-                throw std::runtime_error("RPC failed: " +
-                                         status.error_message());
+            demo::AcceptReply reply;
+            grpc::Status status;
+
+            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::AcceptReply>> rpc;
+        };
+
+        // create a mapping from peer name to its async call
+        std::map<std::string, std::unique_ptr<AsyncCall>> calls;
+
+        // now send async Accept RPCs to all slow quorum members
+        for (const auto& peerName : slowQuorumNames_) {
+            auto call = std::make_unique<AsyncCall>();
+
+            call->rpc = peersNameToStub_[peerName]->AsyncAccept_(
+                &call->ctx, acceptReq, &cq);
+
+            // request notification when the operation finishes asynchronously
+            call->rpc->Finish(&call->reply, &call->status, (void*)peerName.data());
+
+            // store the call in the map
+            calls.emplace(peerName, std::move(call));
+
+            std::cout << "  Sent Accept RPC to " << peerName << std::endl;
+        }
+
+        // collect all accept replies
+        int remaining = slowQuorumNames_.size();
+        std::map<std::string, demo::AcceptReply> acceptReplies;
+
+        while (remaining > 0) {
+            void* tag;
+            bool ok = false;
+
+            // wait for the next result from the completion queue
+            cq.Next(&tag, &ok);
+
+            if (!ok) {
+                // RPC stream broken
+                throw std::runtime_error("RPC stream error");
             }
+
+            std::string peerName = static_cast<const char*>(tag);
+            auto& call = calls[peerName];
+
+            if (!call->status.ok()) {
+                throw std::runtime_error(
+                    "RPC failed from " + peerName + ": " + call->status.error_message());
+            }
+
+            acceptReplies[peerName] = call->reply;
+            remaining--;
         }
 
         // collect accept replies
