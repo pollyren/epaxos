@@ -1,7 +1,7 @@
 import os
 
 from lib.experiment_codebase import ExperimentCodebase
-from utils.remote_util import tcsh_redirect_output_to_files
+from utils.remote_util import is_using_tcsh, tcsh_redirect_output_to_files
 
 
 class ProjectCodebase(ExperimentCodebase):
