@@ -77,7 +77,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         std::string res;
         for (const auto& [replica, instVec] : instances) {
             for (const auto& instance : instVec) {
-                res += "  - " + printInstance(instance) + "\n";
+                res += "  - " + printInstance(instance);
             }
         }
         return res;
@@ -340,12 +340,31 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         c->set_key(inst.cmd.key);
         c->set_value(inst.cmd.value);
 
-        // send commit messages to all replicas
-        for (const auto& [peerName, stub] : peersNameToStub_) {
+        // send commit messages to all replicas asynchronously
+        std::cout << "----------------------------\n[" << thisReplica_
+                  << "] Sending Commit RPCs: " << std::endl;
+
+        grpc::CompletionQueue cq;
+        struct AsyncCall {
             grpc::ClientContext ctx;
-            demo::CommitReply commitReply;
-            stub->Commit(&ctx, commitReq, &commitReply);
+            demo::CommitReply reply;
+            grpc::Status status;
+            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::CommitReply>> rpc;
+        };
+
+        for (const auto& [peerName, stub] : peersNameToStub_) {
+            // allocate an async call object
+            auto* call = new AsyncCall;
+
+            // send the commit RPC
+            call->rpc = stub->AsyncCommit(&call->ctx, commitReq, &cq);
+            call->rpc->Finish(&call->reply, &call->status, call);
+
+            std::cout << "  Sent Commit RPC to " << peerName << std::endl;
         }
+
+        // we do not wait for commit replies because they are empty acks
+        // and EPaxos proceeds without waiting for these commit acks
     }
 
     Status run_paxos_accept(epaxosTypes::Instance newInstance, demo::Command c,
@@ -488,7 +507,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
     Status ClientWriteReq(ServerContext* /*ctx*/, const demo::WriteReq* req,
                           demo::WriteResp* resp) override {
-        std::cout << "\n[" << thisReplica_
+        std::cout << "----------------------------\n[" << thisReplica_
                   << "] Received ClientWriteReq: key=" << req->key()
                   << " value=" << req->value() << std::endl;
 
@@ -639,7 +658,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             // if write, skip execution and return success
             std::string value;
             if (newInstance.cmd.action == epaxosTypes::Command::WRITE) {
-                std::cout << "[" << thisReplica_
+                std::cout << "----------------------------\n[" << thisReplica_
                           << "] WRITE command detected for instance: "
                           << printInstance(newInstance)
                           << "; Skipping execution." << std::endl;
