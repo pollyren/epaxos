@@ -27,7 +27,9 @@ class ProjectCodebase(ExperimentCodebase):
                                     '%s-%d-stats-%d.json' % (client, k, run))
 
         replication_protocol = self.get_replication_protocol_arg_from_name(config['replication_protocol'])
-        workload_file = config['workload_file']
+        workload_file = os.path.join(config['base_remote_bin_directory_nfs'],
+                                            config['bin_directory_name'],
+                                            config['workload_file'])
 
         client_command = ' '.join([str(x) for x in [
             path_to_client_bin,

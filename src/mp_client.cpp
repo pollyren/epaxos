@@ -64,12 +64,6 @@ int run_mp_client(int argc, char **argv) {
         return 1;
     }
 
-    std::cout << "Argv:";
-    for (int k = 0; k < argc; ++k) {
-        std::cout << " " << argv[k];
-    }
-    std::cout << std::endl;
-
     workload::CSVParser parser;
     auto operations = parser.parse(argv[2]);
 

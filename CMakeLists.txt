@@ -79,3 +79,10 @@ target_link_libraries(multipaxos_proto PUBLIC protobuf::libprotobuf gRPC::grpc++
 
 target_link_libraries(server PRIVATE multipaxos_proto epaxos_proto gRPC::grpc++)
 target_link_libraries(client PRIVATE multipaxos_proto epaxos_proto gRPC::grpc++)
+
+add_custom_target(copy_workload ALL
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/workload.csv
+        ${CMAKE_BINARY_DIR}/workload.csv
+    DEPENDS ${CMAKE_SOURCE_DIR}/workload.csv
+)
