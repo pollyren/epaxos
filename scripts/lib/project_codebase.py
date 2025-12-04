@@ -156,13 +156,13 @@ class ProjectCodebase(ExperimentCodebase):
         replica_command = ' '.join([str(x) for x in [
             path_to_server_bin,
             replication_protocol,
-            '-name', 'S%d' % i,
-            '-port', replica_port,
-            '-peers', ",".join(peers),
-            '-peersName2Addr', ",".join(peersName2Addr)]])
+            '--name=S%d' % i,
+            '--port=%d' % replica_port,
+            '--peers=%s' % ",".join(peers),
+            '--peersName2Addr=%s' % ",".join(peersName2Addr)]])
 
         if replication_protocol == 'mp' and i == 0:
-            replica_command += ' -is_leader=true'
+            replica_command += ' --is_leader=true'
 
         stdout_file = os.path.join(exp_directory,
                                     config['out_directory_name'], 'server-%d-stdout-%d.log' % (
