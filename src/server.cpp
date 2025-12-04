@@ -19,8 +19,10 @@ int main(int argc, char** argv) {
     std::string application = argv[1];  // mp (multi-paxos) or e (epaxos)
 
     if (application == "mp") {
+        std::out << "Initializing Multi-Paxos Server...\n";
         return run_mp_server(argc, argv);
     } else if (application == "e") {
+        std::out << "Initializing EPaxos Server...\n";
         return run_ep_server(argc, argv);
     } else {
         std::cerr << "Unknown application type. Use 'mp' for multi-paxos or 'e' "
