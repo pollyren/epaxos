@@ -139,15 +139,15 @@ class ProjectCodebase(ExperimentCodebase):
         exp_directory = remote_exp_directory
         replica_port = config['server_port']
         replication_protocol = self.get_replication_protocol_arg_from_name(config['replication_protocol'])
-        peers = ",".join([
+        peers = [
             f"{name}:{config['server_port']}"
             for j, name in enumerate(config["server_names"])
             if j != i
-        ])
-        peersName2Addr = ",".join([
+        ]
+        peersName2Addr = [
             f"S{i}==={p}"
             for p in enumerate(peers)
-        ])
+        ]
         stats_file = os.path.join(exp_directory,
                                     config['out_directory_name'],
                                     'server-%d-stats-%d.json' % (i, run))
@@ -157,8 +157,8 @@ class ProjectCodebase(ExperimentCodebase):
             replication_protocol,
             '-name', 'S%d' % i,
             '-port', replica_port,
-            '-peers', peers,
-            '-peersName2Addr', peersName2Addr]])
+            '-peers', ",".join(peers),
+            '-peersName2Addr', ",".join(peersName2Addr)]])
 
         if replication_protocol == 'mp' and i == 0:
             replica_command += ' -is_leader=true'
