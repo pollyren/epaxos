@@ -7,6 +7,7 @@
 
 #include "multipaxos.grpc.pb.h"
 #include "workload.hpp"
+#include "absl/log/initialize.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -59,6 +60,8 @@ static mp::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
 }
 
 int run_mp_client(int argc, char **argv) {
+    absl::InitializeLog();
+    
     if (argc < 3) {
         std::cerr << "Usage: ./client <mp|e> <workload_file>\n";
         return 1;

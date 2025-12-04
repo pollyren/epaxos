@@ -11,6 +11,7 @@
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
+#include "absl/log/initialize.h"
 
 static demo::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
                                      const std::string& msg, int id,
@@ -69,6 +70,8 @@ static demo::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
 }
 
 int run_ep_client(int argc, char** argv) {
+    absl::InitializeLog();
+    
     if (argc < 3) {
         std::cerr << "Usage: ./client <mp|e> <workload_file>\n";
         return 1;

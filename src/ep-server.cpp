@@ -20,6 +20,7 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
+#include "absl/log/initialize.h"
 
 namespace {
 std::vector<std::string> split(const std::string& s, char sep) {
@@ -847,6 +848,8 @@ class EchoServiceImpl final : public demo::Echo::Service {
 int run_ep_server(int argc, char** argv) {
     // Usage: ./server --name=S1 --port=50051
     // --peers=localhost:50052,localhost:50053
+    absl::InitializeLog();
+
     std::string name;
     std::string port = "50051";
     std::string peers_csv;
