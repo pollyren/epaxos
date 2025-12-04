@@ -145,8 +145,9 @@ class ProjectCodebase(ExperimentCodebase):
             if j != i
         ]
         peersName2Addr = [
-            f"S{i}==={p}"
-            for p in enumerate(peers)
+            f"S{j}==={name}:{config['server_port']}"
+            for j, name in enumerate(config["server_names"])
+            if j != i
         ]
         stats_file = os.path.join(exp_directory,
                                     config['out_directory_name'],
