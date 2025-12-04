@@ -139,15 +139,15 @@ class ProjectCodebase(ExperimentCodebase):
         exp_directory = remote_exp_directory
         replica_port = config['server_port']
         replication_protocol = self.get_replication_protocol_arg_from_name(config['replication_protocol'])
-        peers = [
+        peers = ",".join([
             f"{name}:{config['server_port']}"
             for j, name in enumerate(config["server_names"])
             if j != i
-        ].join(",")
-        peersName2Addr = [
+        ])
+        peersName2Addr = ",".join([
             f"S{i}==={p}"
             for p in enumerate(peers)
-        ].join(",")
+        ])
         stats_file = os.path.join(exp_directory,
                                     config['out_directory_name'],
                                     'server-%d-stats-%d.json' % (i, run))
