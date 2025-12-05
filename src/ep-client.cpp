@@ -11,6 +11,7 @@
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
+using namespace std::chrono;
 #include "absl/log/initialize.h"
 
 static demo::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
@@ -80,10 +81,15 @@ int run_ep_client(int argc, char** argv) {
     workload::CSVParser parser;
     auto operations = parser.parse(argv[2]);
 
+    size_t i = 0;
     for (const auto& op : operations) {
         // create channel to target server
         auto ch =
             grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
+
+        // record time when the operation is initiated
+        auto start = high_resolution_clock::now();
+        std::string opType;
 
         try {
             switch (op.type) {
@@ -122,6 +128,11 @@ int run_ep_client(int argc, char** argv) {
             std::cout << "error contacting " << op.server << ": " << e.what()
                       << "\n";
         }
+
+        auto end = high_resolution_clock::now();
+        int64_t latency = duration_cast<nanoseconds>(end - start).count();
+        std::cout << opType << "," << latency << "," << op.key << "," << i << "\n";
+        i++;
     }
 
     return 0;
