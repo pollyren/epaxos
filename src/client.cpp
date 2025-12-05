@@ -15,10 +15,10 @@ int main(int argc, char** argv) {
     std::string application = argv[1];  // mp (multi-paxos) or e (epaxos)
 
     if (application == "mp") {
-        std::cout << "Initializing Multi-Paxos Client...\n";
+        std::cerr << "Initializing Multi-Paxos Client...\n";
         return run_mp_client(argc, argv);
     } else if (application == "e") {
-        std::cout << "Initializing EPaxos Client...\n";
+        std::cerr << "Initializing EPaxos Client...\n";
         return run_ep_client(argc, argv);
     } else {
         std::cerr << "Unknown application type. Use 'mp' for multi-paxos or 'e' "
