@@ -129,7 +129,10 @@ int run_ep_client(int argc, char** argv) {
                       << "\n";
         }
 
+        // record time when request is completed
         auto end = high_resolution_clock::now();
+
+        // calculate request latency
         int64_t latency = duration_cast<nanoseconds>(end - start).count();
         std::cout << opType << "," << latency << "," << op.key << "," << i << "\n";
         i++;
