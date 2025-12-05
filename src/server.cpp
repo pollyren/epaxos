@@ -77,7 +77,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         std::string res;
         for (const auto& [replica, instVec] : instances) {
             for (const auto& instance : instVec) {
-                res += "  - " + printInstance(instance) + "\n";
+                res += "  - " + printInstance(instance);
             }
         }
         return res;
@@ -340,12 +340,32 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         c->set_key(inst.cmd.key);
         c->set_value(inst.cmd.value);
 
-        // send commit messages to all replicas
-        for (const auto& [peerName, stub] : peersNameToStub_) {
+        // send commit messages to all replicas asynchronously
+        std::cout << "----------------------------\n[" << thisReplica_
+                  << "] Sending Commit RPCs: " << std::endl;
+
+        grpc::CompletionQueue cq;
+        struct AsyncCall {
             grpc::ClientContext ctx;
-            demo::CommitReply commitReply;
-            stub->Commit(&ctx, commitReq, &commitReply);
+            demo::CommitReply reply;
+            grpc::Status status;
+            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::CommitReply>>
+                rpc;
+        };
+
+        for (const auto& [peerName, stub] : peersNameToStub_) {
+            // allocate an async call object
+            auto* call = new AsyncCall;
+
+            // send the commit RPC
+            call->rpc = stub->AsyncCommit(&call->ctx, commitReq, &cq);
+            call->rpc->Finish(&call->reply, &call->status, call);
+
+            std::cout << "  Sent Commit RPC to " << peerName << std::endl;
         }
+
+        // we do not wait for commit replies because they are empty acks
+        // and EPaxos proceeds without waiting for these commit acks
     }
 
     Status run_paxos_accept(epaxosTypes::Instance newInstance, demo::Command c,
@@ -371,15 +391,65 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         acceptReq.set_sender(thisReplica_);
 
         // send Accept to all slow quorum members
-        std::map<std::string, demo::AcceptReply> acceptReplies;
-        for (const auto& peerName : slowQuorumNames_) {
+        std::cout << "----------------------------\n[" << thisReplica_
+                  << "] Sending Accept RPCs: " << std::endl;
+
+        grpc::CompletionQueue cq;
+        struct AsyncCall {
             grpc::ClientContext ctx;
-            auto status = peersNameToStub_[peerName]->Accept_(
-                &ctx, acceptReq, &acceptReplies[peerName]);
-            if (!status.ok()) {
-                throw std::runtime_error("RPC failed: " +
-                                         status.error_message());
+            demo::AcceptReply reply;
+            grpc::Status status;
+
+            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::AcceptReply>>
+                rpc;
+        };
+
+        // create a mapping from peer name to its async call
+        std::map<std::string, std::unique_ptr<AsyncCall>> calls;
+
+        // now send async Accept RPCs to all slow quorum members
+        for (const auto& peerName : slowQuorumNames_) {
+            auto call = std::make_unique<AsyncCall>();
+
+            call->rpc = peersNameToStub_[peerName]->AsyncAccept_(
+                &call->ctx, acceptReq, &cq);
+
+            // request notification when the operation finishes asynchronously
+            call->rpc->Finish(&call->reply, &call->status,
+                              (void*)peerName.data());
+
+            // store the call in the map
+            calls.emplace(peerName, std::move(call));
+
+            std::cout << "  Sent Accept RPC to " << peerName << std::endl;
+        }
+
+        // collect all accept replies
+        int remaining = slowQuorumNames_.size();
+        std::map<std::string, demo::AcceptReply> acceptReplies;
+
+        while (remaining > 0) {
+            void* tag;
+            bool ok = false;
+
+            // wait for the next result from the completion queue
+            cq.Next(&tag, &ok);
+
+            if (!ok) {
+                // RPC stream broken
+                throw std::runtime_error("RPC stream error");
             }
+
+            std::string peerName = static_cast<const char*>(tag);
+            auto& call = calls[peerName];
+
+            if (!call->status.ok()) {
+                throw std::runtime_error("RPC failed from " + peerName + ": " +
+                                         call->status.error_message());
+            }
+
+            acceptReplies[peerName] = call->reply;
+            remaining--;
         }
 
         // collect accept replies
@@ -440,7 +510,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
     Status ClientWriteReq(ServerContext* /*ctx*/, const demo::WriteReq* req,
                           demo::WriteResp* resp) override {
-        std::cout << "\n[" << thisReplica_
+        std::cout << "----------------------------\n[" << thisReplica_
                   << "] Received ClientWriteReq: key=" << req->key()
                   << " value=" << req->value() << std::endl;
 
@@ -497,18 +567,69 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         preAcceptReq.set_sender(thisReplica_);
 
         //  send PreAccept to all fast quorum members
-        std::map<std::string, demo::PreAcceptReply> preAcceptReplies;
-        for (const auto& peerName : fastQuorumNames_) {
+        std::cout << "----------------------------\n[" << thisReplica_
+                  << "] Sending PreAccept RPCs: " << std::endl;
+
+        grpc::CompletionQueue cq;
+        struct AsyncCall {
             grpc::ClientContext ctx;
-            auto status = peersNameToStub_[peerName]->PreAccept(
-                &ctx, preAcceptReq, &preAcceptReplies[peerName]);
-            if (!status.ok()) {
-                throw std::runtime_error("RPC failed: " +
-                                         status.error_message());
-            }
+            demo::PreAcceptReply reply;
+            grpc::Status status;
+
+            std::unique_ptr<
+                grpc::ClientAsyncResponseReader<demo::PreAcceptReply>>
+                rpc;
+        };
+
+        // create a mapping from peer name to its async call
+        std::map<std::string, std::unique_ptr<AsyncCall>> calls;
+
+        // now send async PreAccept RPCs to all fast quorum members
+        for (const auto& peerName : fastQuorumNames_) {
+            auto call = std::make_unique<AsyncCall>();
+
+            call->rpc = peersNameToStub_[peerName]->AsyncPreAccept(
+                &call->ctx, preAcceptReq, &cq);
+
+            // request notification when the operation finishes asynchronously
+            call->rpc->Finish(&call->reply, &call->status,
+                              (void*)peerName.data());
+
+            // store the call in the map
+            calls.emplace(peerName, std::move(call));
+
+            std::cout << "  Sent PreAccept RPC to " << peerName << std::endl;
         }
 
-        std::cout << "----------------------------\n [" << thisReplica_
+        // collect all preAccept replies
+        int remaining = fastQuorumNames_.size();
+        std::map<std::string, demo::PreAcceptReply> preAcceptReplies;
+
+        while (remaining > 0) {
+            void* tag;
+            bool ok = false;
+
+            // wait for the next result from the completion queue
+            cq.Next(&tag, &ok);
+
+            if (!ok) {
+                // RPC stream broken
+                throw std::runtime_error("RPC stream error");
+            }
+
+            std::string peerName = static_cast<const char*>(tag);
+            auto& call = calls[peerName];
+
+            if (!call->status.ok()) {
+                throw std::runtime_error("RPC failed from " + peerName + ": " +
+                                         call->status.error_message());
+            }
+
+            preAcceptReplies[peerName] = call->reply;
+            remaining--;
+        }
+
+        std::cout << "----------------------------\n[" << thisReplica_
                   << "] PreAccept Reply: " << std::endl;
 
         int agreeCount = 0;
@@ -543,7 +664,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             // if write, skip execution and return success
             std::string value;
             if (newInstance.cmd.action == epaxosTypes::Command::WRITE) {
-                std::cout << "[" << thisReplica_
+                std::cout << "----------------------------\n[" << thisReplica_
                           << "] WRITE command detected for instance: "
                           << printInstance(newInstance)
                           << "; Skipping execution." << std::endl;

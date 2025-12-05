@@ -14,7 +14,8 @@ using grpc::Status;
 int a;
 
 static mp::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
-                              const std::string& msg, int id, bool fanout) {
+                                   const std::string& msg, int id,
+                                   bool fanout) {
     auto stub = mp::Echo::NewStub(ch);
     mp::PingReq req;
     req.set_msg(msg);
@@ -25,13 +26,16 @@ static mp::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
     Status s = stub->Ping(&ctx, req, &resp);
-    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
+    if (!s.ok())
+        throw std::runtime_error("RPC failed with status " +
+                                 std::to_string(s.error_code()) + ": " +
+                                 s.error_message());
     return resp;
 }
 
 static mp::WriteResp call_write(const std::shared_ptr<Channel>& ch,
-                                  const std::string& key,
-                                  const std::string& value) {
+                                const std::string& key,
+                                const std::string& value) {
     auto stub = mp::MultiPaxosReplica::NewStub(ch);
     mp::WriteReq req;
     req.set_key(key);
@@ -42,7 +46,10 @@ static mp::WriteResp call_write(const std::shared_ptr<Channel>& ch,
                      std::chrono::seconds(3));
     Status s = stub->ClientWriteReq(&ctx, req, &resp);
     std::cout << "Response status: " << resp.status() << "\n";
-    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
+    if (!s.ok())
+        throw std::runtime_error("RPC failed with status " +
+                                 std::to_string(s.error_code()) + ": " +
+                                 s.error_message());
     return resp;
 }
 
@@ -55,11 +62,14 @@ static mp::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
                      std::chrono::seconds(3));
     Status s = stub->ClientGetStateReq(&ctx, req, &resp);
     std::cout << "Response state: " << resp.state() << "\n";
-    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
+    if (!s.ok())
+        throw std::runtime_error("RPC failed with status " +
+                                 std::to_string(s.error_code()) + ": " +
+                                 s.error_message());
     return resp;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Usage: ./client <workload_file>\n";
         return 1;
@@ -70,13 +80,15 @@ int main(int argc, char **argv) {
 
     for (const auto& op : operations) {
         // create channel to target server
-        auto ch = grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
+        auto ch =
+            grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
 
         try {
             switch (op.type) {
                 case workload::OperationType::OP_WRITE: {
                     std::cout << "Writing key='" << op.key << "' value='"
-                              << op.value << "' to server='" << op.server << "'\n";
+                              << op.value << "' to server='" << op.server
+                              << "'\n";
                     auto resp = call_write(ch, op.key, op.value);
                     break;
                 }
@@ -85,7 +97,8 @@ int main(int argc, char **argv) {
                     break;
                 }
                 case workload::OperationType::OP_GET_STATE: {
-                    std::cout << "Getting state from server='" << op.server << "'\n";
+                    std::cout << "Getting state from server='" << op.server
+                              << "'\n";
                     auto resp = call_get_state(ch);
                     break;
                 }

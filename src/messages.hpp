@@ -25,6 +25,6 @@ struct Message {
     virtual ~Message() = default;
 };
 
-} // namespace epaxos
+}  // namespace epaxos
 
-#endif // EPAXOS_MESSAGES_HPP
+#endif  // EPAXOS_MESSAGES_HPP
