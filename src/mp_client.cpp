@@ -83,25 +83,25 @@ int run_mp_client(int argc, char **argv) {
         try {
             switch (op.type) {
                 case workload::OperationType::OP_WRITE: {
-                    opType = "write"
+                    opType = "write";
                     std::cout << "Writing key='" << op.key << "' value='"
                               << op.value << "' to server='" << op.server << "'\n";
                     auto resp = call_write(ch, op.key, op.value);
                     break;
                 }
                 case workload::OperationType::OP_READ: {
-                    opType = "read"
+                    opType = "read";
                     std::cout << "Read operation not implemented yet.\n";
                     break;
                 }
                 case workload::OperationType::OP_GET_STATE: {
-                    opType = "get_state"
+                    opType = "get_state";
                     std::cout << "Getting state from server='" << op.server << "'\n";
                     auto resp = call_get_state(ch);
                     break;
                 }
                 case workload::OperationType::OP_BROADCAST: {
-                    opType = "broadcast"
+                    opType = "broadcast";
                     int id = 1;
                     auto resp = call_broadcast(ch, op.value, id++, true);
                     std::cout << "reply='" << resp.reply()
