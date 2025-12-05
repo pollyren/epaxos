@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.16)
 project(grpc_3srv_1cli LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -55,13 +55,20 @@ add_library(epaxos_proto
 target_include_directories(epaxos_proto PUBLIC ${GEN_DIR})
 target_link_libraries(epaxos_proto PUBLIC protobuf::libprotobuf gRPC::grpc++)
 
-add_executable(server src/server.cpp)
-add_executable(client
-  src/client.cpp
-  src/workload.cpp
+add_executable(server
+    src/server.cpp
+    src/mp_server.cpp
+    src/ep-server.cpp
+    src/utils.cpp
 )
-target_link_libraries(server PRIVATE epaxos_proto)
-target_link_libraries(client PRIVATE epaxos_proto)
+
+add_executable(client
+    src/client.cpp
+    src/mp_client.cpp
+    src/ep-client.cpp
+    src/workload.cpp
+    src/utils.cpp
+)
 
 add_library(multipaxos_proto
   ${GEN_DIR}/multipaxos.pb.cc
@@ -70,10 +77,12 @@ add_library(multipaxos_proto
 target_include_directories(multipaxos_proto PUBLIC ${GEN_DIR})
 target_link_libraries(multipaxos_proto PUBLIC protobuf::libprotobuf gRPC::grpc++)
 
-add_executable(mp_server src/mp_server.cpp)
-add_executable(mp_client
-  src/mp_client.cpp
-  src/workload.cpp
+target_link_libraries(server PRIVATE multipaxos_proto epaxos_proto gRPC::grpc++)
+target_link_libraries(client PRIVATE multipaxos_proto epaxos_proto gRPC::grpc++)
+
+add_custom_target(copy_workload ALL
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/workload.csv
+        ${CMAKE_BINARY_DIR}/workload.csv
+    DEPENDS ${CMAKE_SOURCE_DIR}/workload.csv
 )
-target_link_libraries(mp_server PRIVATE multipaxos_proto)
-target_link_libraries(mp_client PRIVATE multipaxos_proto)
