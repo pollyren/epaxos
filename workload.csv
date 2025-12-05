@@ -3,4 +3,3 @@ write,"k121","banana",us-east-1-0:7087
 write,"k121","cherry",us-east-1-0:7087
 write,"k122","date",us-east-1-0:7087
 write,"k122","elderberry",us-east-1-0:7087
-get_state,,,us-east-1-0:7087

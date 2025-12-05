@@ -42,7 +42,7 @@ static mp::WriteResp call_write(const std::shared_ptr<Channel>& ch,
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
     Status s = stub->ClientWriteReq(&ctx, req, &resp);
-    std::cout << "Response status: " << resp.status() << "\n";
+    std::cerr << "Response status: " << resp.status() << "\n";
     if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
     return resp;
 }
