@@ -5,24 +5,24 @@
 #include <string>
 #include <vector>
 
-#include "multipaxos.grpc.pb.h"
+#include "epaxos.grpc.pb.h"
 #include "workload.hpp"
-#include "absl/log/initialize.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 using namespace std::chrono;
+#include "absl/log/initialize.h"
 
-static mp::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
-                                   const std::string& msg, int id,
-                                   bool fanout) {
-    auto stub = mp::Echo::NewStub(ch);
-    mp::PingReq req;
+static demo::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
+                                     const std::string& msg, int id,
+                                     bool fanout) {
+    auto stub = demo::Echo::NewStub(ch);
+    demo::PingReq req;
     req.set_msg(msg);
     req.set_id(id);
     req.set_fanout(fanout);
-    mp::PingResp resp;
+    demo::PingResp resp;
     ClientContext ctx;
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
@@ -34,37 +34,43 @@ static mp::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
     return resp;
 }
 
-static mp::WriteResp call_write(const std::shared_ptr<Channel>& ch,
-                                const std::string& key,
-                                const std::string& value) {
-    auto stub = mp::MultiPaxosReplica::NewStub(ch);
-    mp::WriteReq req;
+static demo::WriteResp call_write(const std::shared_ptr<Channel>& ch,
+                                  const std::string& key,
+                                  const std::string& value) {
+    auto stub = demo::EPaxosReplica::NewStub(ch);
+    demo::WriteReq req;
     req.set_key(key);
     req.set_value(value);
-    mp::WriteResp resp;
+    demo::WriteResp resp;
     ClientContext ctx;
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
     Status s = stub->ClientWriteReq(&ctx, req, &resp);
     std::cerr << "Response status: " << resp.status() << "\n";
-    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
+    if (!s.ok())
+        throw std::runtime_error("RPC failed with status " +
+                                 std::to_string(s.error_code()) + ": " +
+                                 s.error_message());
     return resp;
 }
 
-static mp::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
-    auto stub = mp::MultiPaxosReplica::NewStub(ch);
-    mp::GetStateReq req;
-    mp::GetStateResp resp;
+static demo::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
+    auto stub = demo::EPaxosReplica::NewStub(ch);
+    demo::GetStateReq req;
+    demo::GetStateResp resp;
     ClientContext ctx;
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
     Status s = stub->ClientGetStateReq(&ctx, req, &resp);
     std::cerr << "Response state: " << resp.state() << "\n";
-    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
+    if (!s.ok())
+        throw std::runtime_error("RPC failed with status " +
+                                 std::to_string(s.error_code()) + ": " +
+                                 s.error_message());
     return resp;
 }
 
-int run_mp_client(int argc, char **argv) {
+int run_ep_client(int argc, char** argv) {
     absl::InitializeLog();
     
     if (argc < 3) {
@@ -78,7 +84,8 @@ int run_mp_client(int argc, char **argv) {
     size_t i = 0;
     for (const auto& op : operations) {
         // create channel to target server
-        auto ch = grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
+        auto ch =
+            grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
 
         // record time when the operation is initiated
         auto start = high_resolution_clock::now();
@@ -89,7 +96,8 @@ int run_mp_client(int argc, char **argv) {
                 case workload::OperationType::OP_WRITE: {
                     opType = "write";
                     std::cerr << "Writing key='" << op.key << "' value='"
-                              << op.value << "' to server='" << op.server << "'\n";
+                              << op.value << "' to server='" << op.server
+                              << "'\n";
                     auto resp = call_write(ch, op.key, op.value);
                     break;
                 }
@@ -100,7 +108,8 @@ int run_mp_client(int argc, char **argv) {
                 }
                 case workload::OperationType::OP_GET_STATE: {
                     opType = "get_state";
-                    std::cerr << "Getting state from server='" << op.server << "'\n";
+                    std::cerr << "Getting state from server='" << op.server
+                              << "'\n";
                     auto resp = call_get_state(ch);
                     break;
                 }
@@ -111,9 +120,9 @@ int run_mp_client(int argc, char **argv) {
                     std::cerr << "reply='" << resp.reply()
                               << "' from=" << resp.from();
                     if (resp.broadcasted_to_size() > 0) {
-                        std::cout << " | acks:";
+                        std::cerr << " | acks:";
                         for (const auto& s : resp.broadcasted_to())
-                            std::cout << " [" << s << "]";
+                            std::cerr << " [" << s << "]";
                     }
                     std::cerr << "\n";
                     break;

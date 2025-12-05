@@ -1,6 +1,5 @@
-write,"k121","apple",localhost:50054
-write,"k121","banana",localhost:50054
-write,"k121","cherry",localhost:50054
-write,"k122","date",localhost:50054
-write,"k122","elderberry",localhost:50054
-get_state,,,localhost:50054
+write,"k121","apple",us-east-1-0:7087
+write,"k121","banana",us-east-1-0:7087
+write,"k121","cherry",us-east-1-0:7087
+write,"k122","date",us-east-1-0:7087
+write,"k122","elderberry",us-east-1-0:7087
