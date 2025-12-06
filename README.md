@@ -29,7 +29,6 @@
   $ mkdir build && cd build
   $ cmake .. -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF
   $ make -j$(nproc)
-  $ sudo make install
   $ cd ..
   $ cmake -S . -B build
   $ cmake --build build -j
