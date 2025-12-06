@@ -21,8 +21,9 @@ int main(int argc, char** argv) {
         std::cerr << "Initializing EPaxos Client...\n";
         return run_ep_client(argc, argv);
     } else {
-        std::cerr << "Unknown application type. Use 'mp' for multi-paxos or 'e' "
-                     "for epaxos.\n";
+        std::cerr
+            << "Unknown application type. Use 'mp' for multi-paxos or 'e' "
+               "for epaxos.\n";
         return 1;
     }
 }

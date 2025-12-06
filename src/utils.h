@@ -1,9 +1,10 @@
 #pragma once
-#include <string>
 #include <map>
+#include <string>
 
 void trim(std::string& t);
-std::map<std::string, std::string> parse_map_mixed_simple(const std::string& str);
+std::map<std::string, std::string> parse_map_mixed_simple(
+    const std::string& str);
 
 template <class Map>
 std::string map_to_string(const Map& m, const std::string& arrow = "-->",

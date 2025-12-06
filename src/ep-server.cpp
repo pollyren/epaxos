@@ -452,7 +452,6 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
             acceptReplies[peerName] = call->reply;
             remaining--;
-            }
         }
 
         // collect accept replies
@@ -630,7 +629,6 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
             preAcceptReplies[peerName] = call->reply;
             remaining--;
-            }
         }
 
         std::cout << "----------------------------\n[" << thisReplica_
@@ -668,7 +666,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             // if write, skip execution and return success
             std::string value;
             if (newInstance.cmd.action == epaxosTypes::Command::WRITE) {
-                std::cout << "----------------------------\n[" << thisReplica
+                std::cout << "----------------------------\n[" << thisReplica_
                           << "] WRITE command detected for instance: "
                           << printInstance(newInstance)
                           << "; Skipping execution." << std::endl;
