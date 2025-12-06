@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+
 #include "utils.h"
 
 int run_mp_server(int argc, char** argv);
@@ -25,8 +26,9 @@ int main(int argc, char** argv) {
         std::cout << "Initializing EPaxos Server...\n";
         return run_ep_server(argc, argv);
     } else {
-        std::cerr << "Unknown application type. Use 'mp' for multi-paxos or 'e' "
-                     "for epaxos.\n";
+        std::cerr
+            << "Unknown application type. Use 'mp' for multi-paxos or 'e' "
+               "for epaxos.\n";
         return 1;
     }
 }

@@ -1,8 +1,9 @@
 #include "utils.h"
-#include <string>
+
+#include <algorithm>
 #include <map>
 #include <sstream>
-#include <algorithm>
+#include <string>
 
 void trim(std::string& t) {
     auto a = std::find_if_not(t.begin(), t.end(), ::isspace);

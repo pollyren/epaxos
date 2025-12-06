@@ -11,10 +11,10 @@
 #include <vector>
 
 #include "../build/generated/multipaxos.grpc.pb.h"
+#include "absl/log/initialize.h"
 #include "mp_types.hpp"
 #include "multipaxos.pb.h"
 #include "utils.h"
-#include "absl/log/initialize.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -705,7 +705,7 @@ int run_mp_server(int argc, char** argv) {
     // Usage: ./server --name=S1 --port=50051
     // --peers=localhost:50052,localhost:50053 --is_leader
     absl::InitializeLog();
-    
+
     std::string name;
     std::string port = "50051";
     std::string peers_csv;

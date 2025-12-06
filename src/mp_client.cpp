@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
+#include "absl/log/initialize.h"
 #include "multipaxos.grpc.pb.h"
 #include "workload.hpp"
-#include "absl/log/initialize.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -47,7 +47,10 @@ static mp::WriteResp call_write(const std::shared_ptr<Channel>& ch,
                      std::chrono::seconds(3));
     Status s = stub->ClientWriteReq(&ctx, req, &resp);
     std::cerr << "Response status: " << resp.status() << "\n";
-    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
+    if (!s.ok())
+        throw std::runtime_error("RPC failed with status " +
+                                 std::to_string(s.error_code()) + ": " +
+                                 s.error_message());
     return resp;
 }
 
@@ -60,13 +63,16 @@ static mp::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
                      std::chrono::seconds(3));
     Status s = stub->ClientGetStateReq(&ctx, req, &resp);
     std::cerr << "Response state: " << resp.state() << "\n";
-    if (!s.ok()) throw std::runtime_error("RPC failed with status " + std::to_string(s.error_code()) + ": " + s.error_message());
+    if (!s.ok())
+        throw std::runtime_error("RPC failed with status " +
+                                 std::to_string(s.error_code()) + ": " +
+                                 s.error_message());
     return resp;
 }
 
-int run_mp_client(int argc, char **argv) {
+int run_mp_client(int argc, char** argv) {
     absl::InitializeLog();
-    
+
     if (argc < 3) {
         std::cerr << "Usage: ./client <mp|e> <workload_file>\n";
         return 1;
@@ -78,7 +84,8 @@ int run_mp_client(int argc, char **argv) {
     size_t i = 0;
     for (const auto& op : operations) {
         // create channel to target server
-        auto ch = grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
+        auto ch =
+            grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
 
         // record time when the operation is initiated
         auto start = high_resolution_clock::now();
@@ -89,7 +96,8 @@ int run_mp_client(int argc, char **argv) {
                 case workload::OperationType::OP_WRITE: {
                     opType = "write";
                     std::cerr << "Writing key='" << op.key << "' value='"
-                              << op.value << "' to server='" << op.server << "'\n";
+                              << op.value << "' to server='" << op.server
+                              << "'\n";
                     auto resp = call_write(ch, op.key, op.value);
                     break;
                 }
@@ -100,7 +108,8 @@ int run_mp_client(int argc, char **argv) {
                 }
                 case workload::OperationType::OP_GET_STATE: {
                     opType = "get_state";
-                    std::cerr << "Getting state from server='" << op.server << "'\n";
+                    std::cerr << "Getting state from server='" << op.server
+                              << "'\n";
                     auto resp = call_get_state(ch);
                     break;
                 }
@@ -129,7 +138,8 @@ int run_mp_client(int argc, char **argv) {
 
         // calculate request latency
         int64_t latency = duration_cast<nanoseconds>(end - start).count();
-        std::cout << opType << "," << latency << "," << op.key << "," << i << "\n";
+        std::cout << opType << "," << latency << "," << op.key << "," << i
+                  << "\n";
         i++;
     }
 

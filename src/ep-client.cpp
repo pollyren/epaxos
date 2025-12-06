@@ -72,7 +72,7 @@ static demo::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
 
 int run_ep_client(int argc, char** argv) {
     absl::InitializeLog();
-    
+
     if (argc < 3) {
         std::cerr << "Usage: ./client <mp|e> <workload_file>\n";
         return 1;
@@ -138,7 +138,8 @@ int run_ep_client(int argc, char** argv) {
 
         // calculate request latency
         int64_t latency = duration_cast<nanoseconds>(end - start).count();
-        std::cout << opType << "," << latency << "," << op.key << "," << i << "\n";
+        std::cout << opType << "," << latency << "," << op.key << "," << i
+                  << "\n";
         i++;
     }
 
