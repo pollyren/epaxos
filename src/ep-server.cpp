@@ -249,6 +249,12 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return result;
     }
 
+    int countDependenciesForInstanceID(const epaxosTypes::InstanceID id){
+        Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph = buildDependencyGraphForInstanceID(id);
+        return depGraph.size();
+    }
+    
+
     Graph<epaxosTypes::InstanceID, InstanceIDHash>
     buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id) {
         // Create a graph to represent dependencies
