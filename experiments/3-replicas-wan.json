@@ -163,7 +163,7 @@
   "client_zipfian_s": 0,
   "client_zipfian_v": 1,
   "emulab_user": "root",
-  "experiment_name": "rghilea-282720",
+  "experiment_name": "rghilea-283368",
   "max_bandwidth": "10gibps",
   "max_file_descriptors": 65535,
   "max_retries": 0,

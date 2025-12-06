@@ -1,6 +1,8 @@
 #pragma once
 #include <map>
 #include <string>
+#include <random>
+#include <cmath>
 
 void trim(std::string& t);
 std::map<std::string, std::string> parse_map_mixed_simple(
@@ -20,3 +22,17 @@ std::string map_to_string(const Map& m, const std::string& arrow = "-->",
     }
     return out;
 }
+
+class ZipfGenerator {
+public:
+    ZipfGenerator(size_t n, double s);
+
+    size_t next();
+
+private:
+    size_t n_;
+    double s_;
+    double H_;
+    std::mt19937 rng_;
+    std::uniform_real_distribution<double> dist_;
+};
