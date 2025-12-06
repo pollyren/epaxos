@@ -298,7 +298,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // Print the graph
         std::cout << "[" << thisReplica_
                   << "] Dependency Graph Edges:" << std::endl;
+        int dependencyCount = 0;
         for (const auto& vertexIdStr : visited) {
+            dependencyCount++;
             // parse vertexIdStr to InstanceID
             auto pos = vertexIdStr.find('.');
             std::string rid = vertexIdStr.substr(0, pos);
@@ -314,6 +316,11 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             }
         }
 
+        std::cout << "[" << thisReplica_ << "] Dependency (Edge) count: " << dependencyCount << std::endl; 
+        std::cout << "[" << thisReplica_ << "] Vertex count: " << depGraph.size() << std::endl;
+
+        std::cout << "[" << thisReplica_ << "Dependency list count: "
+                  << findInstanceById(id).attr.deps.size() << std::endl;
         return depGraph;
     }
 
@@ -678,7 +685,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                           << "; Skipping execution." << std::endl;
                 value = "<suceessful>";
                 std::cout << "Dependency count: " << countDependenciesForInstanceID(newInstance.id) << std::endl ;
-                
+
             } else {
                 value = execute(newInstance);
             }
