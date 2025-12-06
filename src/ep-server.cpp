@@ -677,6 +677,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                           << printInstance(newInstance)
                           << "; Skipping execution." << std::endl;
                 value = "<suceessful>";
+                std::cout << "Dependency count: " << countDependenciesForInstanceID(newInstance.id) << std::endl ;
+                
             } else {
                 value = execute(newInstance);
             }
