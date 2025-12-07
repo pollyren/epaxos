@@ -385,9 +385,15 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         std::cout<< "InstanceID: " <<  instanceId.replica_id << ", "
                   << instanceId.replicaInstance_id << std::endl;
 
+        std::cout << "[" << thisReplica_ << "] Current replica state: \n"
+                  << instances_to_string() << std::endl;
+
         // update the instance status locally
         instances[instanceId.replica_id][instanceId.replicaInstance_id].status =
             multipaxosTypes::Status::ACCEPTED;
+
+        std::cout << "[" << thisReplica_ << "] Current replica state: \n"
+                  << instances_to_string() << std::endl;
 
         std::cout << "[" << thisReplica_
                   << "] Accepted instance: " << instanceId.replica_id << "."
