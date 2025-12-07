@@ -35,7 +35,7 @@ class ProjectCodebase(ExperimentCodebase):
         server = ""
         for region in config["server_regions"].values():
             if client in region:
-                server = region[0]
+                server = f"{region[0]}:{config['server_port']}"
 
         client_command = ' '.join([str(x) for x in [
             path_to_client_bin,
