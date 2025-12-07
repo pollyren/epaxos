@@ -341,7 +341,9 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         std::cout << "----------------------------\n"
                   << "[" << thisReplica_ << "] Received AcceptReq for instance "
                   << req->id().replica_id() << "."
-                  << req->id().instance_seq_id() << std::endl;
+                  << req->id().instance_seq_id() 
+                  << "from sender "
+                  << req->sender() << std::endl;
 
         if (req->sender().empty()) {
             throw std::runtime_error("AcceptReq: replica_id is empty");
