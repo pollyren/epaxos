@@ -315,6 +315,19 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             throw std::runtime_error("RPC failed: instance counter mismatch");
         }
 
+        // Store instance and resize instance vector if needed
+        if (instances[newInstance.id.replica_id].size() <=
+            newInstance.id.replicaInstance_id) {
+            instances[newInstance.id.replica_id].resize(
+                newInstance.id.replicaInstance_id + 1);
+        }
+        instances[newInstance.id.replica_id][newInstance.id.replicaInstance_id] =
+            newInstance;
+
+        std::cout << "[" << thisReplica_
+                  << "] Stored new instance: " << newInstance.id.replica_id
+                  << "." << newInstance.id.replicaInstance_id << std::endl;
+
         // Accept Phase
         bool successAccept = accept(newInstance);
         if (!successAccept) {
