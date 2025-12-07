@@ -32,12 +32,20 @@ class ProjectCodebase(ExperimentCodebase):
         numKeys = config["client_num_keys"]
         zipfS = config["client_zipfian_s"]
 
+        if replication_protocol == "mp":
+            server = f"{config['server_names'][0]}:{config['server_port']}"
+        else:
+            for region in config["server_regions"].values():
+                if client in region:
+                    server = f"{region[0]}:{config['server_port']}"
+
         client_command = ' '.join([str(x) for x in [
             path_to_client_bin,
             replication_protocol,
             '--expLength=%d' % expLength,
             '--numKeys=%d' % numKeys,
             '--zipfS=%d' % zipfS,
+            '--server=' + server
         ]])
 
         stdout_file = os.path.join(exp_directory,
