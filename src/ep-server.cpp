@@ -324,6 +324,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         LOG("[" << thisReplica_ << "] Dependency list count: "
                   << findInstanceById(id).attr.deps.size() << std::endl);
+
+        std::cout << "write," << id.replicaInstance_id << "," << dependencyCount << "," << depGraph.size() << ",";
         return depGraph;
     }
 
@@ -687,7 +689,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                           << "; Skipping execution." << std::endl);
                 value = "<suceessful>";
                 countDependenciesForInstanceID(newInstance.id);
-
+                std::cout << newInstance.cmd.key << std::endl;
             } else {
                 value = execute(newInstance);
             }
