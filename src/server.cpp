@@ -20,10 +20,10 @@ int main(int argc, char** argv) {
     std::string application = argv[1];  // mp (multi-paxos) or e (epaxos)
 
     if (application == "mp") {
-        std::cout << "Initializing Multi-Paxos Server...\n";
+        std::cerr << "Initializing Multi-Paxos Server...\n";
         return run_mp_server(argc, argv);
     } else if (application == "e") {
-        std::cout << "Initializing EPaxos Server...\n";
+        std::cerr << "Initializing EPaxos Server...\n";
         return run_ep_server(argc, argv);
     } else {
         std::cerr
