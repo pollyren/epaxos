@@ -33,7 +33,7 @@ class ProjectCodebase(ExperimentCodebase):
         zipfS = config["client_zipfian_s"]
 
         if replication_protocol == "mp":
-            server = f"{config["server_names"][0]}:{config['server_port']}"
+            server = f"{config['server_names'][0]}:{config['server_port']}"
         else:
             for region in config["server_regions"].values():
                 if client in region:
