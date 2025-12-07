@@ -93,7 +93,7 @@ int run_mp_client(int argc, char** argv) {
         } else if (a.rfind("--zipfS=", 0) == 0) {
             zipfS = std::stoi((a.substr(8)));
         } else if (a.rfind("--server=", 0) == 0) {
-            server = std::stoi((a.substr(9)));
+            server = (a.substr(9));
         }
     }
 
