@@ -82,6 +82,7 @@ int run_mp_client(int argc, char** argv) {
     int expLength;
     int numKeys;
     int zipfS;
+    std::string server;
 
     for (int i = 2; i < argc; ++i) {
         std::string a = argv[i];
@@ -91,13 +92,14 @@ int run_mp_client(int argc, char** argv) {
             numKeys = std::stoi(a.substr(10)); 
         } else if (a.rfind("--zipfS=", 0) == 0) {
             zipfS = std::stoi((a.substr(8)));
+        } else if (a.rfind("--server=", 0) == 0) {
+            zipfS = std::stoi((a.substr(9)));
         }
     }
 
     auto expStart = high_resolution_clock::now();
     auto expEnd   = expStart + seconds(expLength);
     ZipfGenerator zipf = ZipfGenerator(numKeys, zipfS);
-    std::string server = "us-east-1-0:7087";
     size_t i = 0;
     std::string key;
     std::string val;
