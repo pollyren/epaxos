@@ -63,6 +63,20 @@
       "client-8-0"
     ]
   },
+  "server_neighbors": {
+    "us-east-1-0": [
+      [1, "us-west-1-0"],
+      [2, "eu-west-1-0"]
+    ],
+    "us-west-1-0": [
+      [0, "us-east-1-0"],
+      [2, "eu-west-1-0"]
+    ],
+    "eu-west-1-0": [
+      [0, "us-east-1-0"],
+      [1, "us-west-1-0"]
+    ]
+  },
   "region_rtt_latencies": {
       "california": {
         "california": 0,
