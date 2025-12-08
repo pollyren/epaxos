@@ -1044,8 +1044,21 @@ int run_ep_server(int argc, char** argv) {
             peer_names.push_back(p.first);
         }
 
-        EPaxosReplica service(name, peer_name_to_addr, peer_names,
-                              peer_names);  // create a server structure
+        int f = peer_names.size() / 2;
+        size_t fast_path_quorum_size = f + (f + 1) / 2;
+        size_t slow_path_quorum_size = f + 1;
+
+        LOG("[" << name << "] Determined f=" << f 
+                  << ", fast_path_quorum_size=" << fast_path_quorum_size
+                  << ", slow_path_quorum_size=" << slow_path_quorum_size 
+                  << std::endl);
+
+        std::vector<std::string> fast_path_quorum(peer_names.begin(), peer_names.begin() + fast_path_quorum_size);
+        std::vector<std::string> slow_path_quorum(peer_names.begin(), peer_names.begin() + slow_path_quorum_size);
+
+
+        EPaxosReplica service(name, peer_name_to_addr, fast_path_quorum,
+                              slow_path_quorum);  // create a server structure
 
         grpc::ServerBuilder builder;
         const std::string addr = std::string("0.0.0.0:") + port;
