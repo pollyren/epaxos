@@ -315,19 +315,6 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             throw std::runtime_error("RPC failed: instance counter mismatch");
         }
 
-        // Store instance and resize instance vector if needed
-        if (instances[newInstance.id.replica_id].size() <=
-            newInstance.id.replicaInstance_id) {
-            instances[newInstance.id.replica_id].resize(
-                newInstance.id.replicaInstance_id + 1);
-        }
-        instances[newInstance.id.replica_id][newInstance.id.replicaInstance_id] =
-            newInstance;
-
-        std::cout << "[" << thisReplica_
-                  << "] Stored new instance: " << newInstance.id.replica_id
-                  << "." << newInstance.id.replicaInstance_id << std::endl;
-
         // Accept Phase
         bool successAccept = accept(newInstance);
         if (!successAccept) {
@@ -377,27 +364,29 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                   << " key=" << req->cmd().key()
                   << " value=" << req->cmd().value() << std::endl;
 
-        // get instance ID from request
+        // construct instance ID from request
         multipaxosTypes::InstanceID instanceId;
         instanceId.replica_id = req->id().replica_id();
         instanceId.replicaInstance_id = req->id().instance_seq_id();
 
-        std::cout<< "InstanceID: " <<  instanceId.replica_id << ", "
-                  << instanceId.replicaInstance_id << std::endl;
+        // store the instance locally
+        multipaxosTypes::Instance newInstance;
+        newInstance.cmd = cmd;
+        newInstance.status = multipaxosTypes::Status::ACCEPTED;
+        newInstance.id = instanceId;
 
-        std::cout << "[" << thisReplica_ << "] Current replica state: \n"
-                  << instances_to_string() << std::endl;
-
-        // update the instance status locally
-        instances[instanceId.replica_id][instanceId.replicaInstance_id].status =
-            multipaxosTypes::Status::ACCEPTED;
-
-        std::cout << "[" << thisReplica_ << "] Current replica state: \n"
-                  << instances_to_string() << std::endl;
+        // resize instance vector if needed
+        if (instances[instanceId.replica_id].size() <=
+            instanceId.replicaInstance_id) {
+            instances[instanceId.replica_id].resize(
+                instanceId.replicaInstance_id + 1);
+        }
+        instances[instanceId.replica_id][instanceId.replicaInstance_id] =
+            newInstance;
 
         std::cout << "[" << thisReplica_
-                  << "] Accepted instance: " << instanceId.replica_id << "."
-                  << instanceId.replicaInstance_id << std::endl;
+                  << "] Accepted instance: " << newInstance.id.replica_id
+                  << "." << newInstance.id.replicaInstance_id << std::endl;
 
         // prepare the reply message
         resp->set_ok(true);
