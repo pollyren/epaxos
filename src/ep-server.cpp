@@ -1045,8 +1045,8 @@ int run_ep_server(int argc, char** argv) {
         }
 
         int f = peer_names.size() / 2;
-        size_t fast_path_quorum_size = f + (f + 1) / 2;
-        size_t slow_path_quorum_size = f + 1;
+        size_t fast_path_quorum_size = f + (f + 1) / 2 - 1;
+        size_t slow_path_quorum_size = f;
 
         LOG("[" << name << "] Determined f=" << f 
                   << ", fast_path_quorum_size=" << fast_path_quorum_size
