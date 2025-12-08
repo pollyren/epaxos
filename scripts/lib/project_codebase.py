@@ -75,12 +75,12 @@ class ProjectCodebase(ExperimentCodebase):
         replica_port = config['server_port']
         replication_protocol = self.get_replication_protocol_arg_from_name(config['replication_protocol'])
         peers = [
-            f"{name}:{config['server_port']}"
-            for _, j, name in enumerate(config["server_neighbors"][replica_host])
+            f"{neighbor[1]}:{config['server_port']}"
+            for _, neighbor in enumerate(config["server_neighbors"][replica_host])
         ]
         peersName2Addr = [
-            f"S{j}==={name}:{config['server_port']}"
-            for _, j, name in enumerate(config["server_neighbors"][replica_host])
+            f"S{neighbor[0]}==={neighbor[1]}:{config['server_port']}"
+            for _, neighbor in enumerate(config["server_neighbors"][replica_host])
         ]
         stats_file = os.path.join(exp_directory,
                                     config['out_directory_name'],
