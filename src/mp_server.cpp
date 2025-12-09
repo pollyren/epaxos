@@ -292,6 +292,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
 
     Status ClientWriteReq(ServerContext* /*ctx*/, const mp::WriteReq* req,
                           mp::WriteResp* resp) override {
+        auto s = high_resolution_clock::now();
         std::cout << "\n[" << thisReplica_
                   << "] Received ClientWriteReq: key=" << req->key()
                   << " value=" << req->value() << std::endl;
@@ -330,7 +331,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         int64_t latency = duration_cast<nanoseconds>(accEnd - accStart).count();
         std::cout << "[" << thisReplica_
                     << "] Accept phase took " << latency 
-                    << "nanoseconds for instance: "
+                    << " nanoseconds for instance: "
                     << newInstance.id.replica_id << "."
                     << newInstance.id.replicaInstance_id
                     << std::endl;
@@ -346,7 +347,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         latency = duration_cast<nanoseconds>(commEnd - commStart).count();
         std::cout << "[" << thisReplica_
                     << "] Commit phase took " << latency 
-                    << "nanoseconds for instance: "
+                    << " nanoseconds for instance: "
                     << newInstance.id.replica_id << "."
                     << newInstance.id.replicaInstance_id
                     << std::endl;
@@ -357,6 +358,14 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                   << " value=" << req->value() << " write accepted."
                   << std::endl;
         resp->set_status("write accepted");
+        auto e = high_resolution_clock::now();
+        latency = duration_cast<nanoseconds>(e-s).count();
+        std::cout << "[" << thisReplica_
+                    << "] Entire request took " << latency 
+                    << " nanoseconds for instance: "
+                    << newInstance.id.replica_id << "."
+                    << newInstance.id.replicaInstance_id
+                    << std::endl;
         return Status::OK;
     }
 
