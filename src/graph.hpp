@@ -15,6 +15,8 @@ class Graph {
 
     explicit Graph(bool directed = false) : directed_(directed) {}
 
+    int size() const { return adj_.size(); }
+
     bool addVertex(const Vertex& v) {
         auto [it, inserted] = adj_.try_emplace(v);
         return inserted;

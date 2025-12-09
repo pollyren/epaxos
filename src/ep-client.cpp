@@ -13,6 +13,7 @@ using grpc::ClientContext;
 using grpc::Status;
 using namespace std::chrono;
 #include "absl/log/initialize.h"
+#include "utils.h"
 
 static demo::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
                                      const std::string& msg, int id,
@@ -74,71 +75,65 @@ int run_ep_client(int argc, char** argv) {
     absl::InitializeLog();
 
     if (argc < 3) {
-        std::cerr << "Usage: ./client <mp|e> <workload_file>\n";
+        std::cerr << "Usage: ./client <mp|e> [args...]\n";
         return 1;
     }
 
-    workload::CSVParser parser;
-    auto operations = parser.parse(argv[2]);
+    int expLength;
+    int numKeys;
+    int zipfS;
+    std::string server;
 
+    for (int i = 2; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a.rfind("--expLength=", 0) == 0)
+            expLength = std::stoi(a.substr(12));
+        else if (a.rfind("--numKeys=", 0) == 0) {
+            numKeys = std::stoi(a.substr(10)); 
+        } else if (a.rfind("--zipfS=", 0) == 0) {
+            zipfS = std::stoi((a.substr(8)));
+        } else if (a.rfind("--server=", 0) == 0) {
+            server = a.substr(9);
+        }
+    }
+
+    auto expStart = high_resolution_clock::now();
+    auto expEnd   = expStart + seconds(expLength);
+    ZipfGenerator zipf = ZipfGenerator(numKeys, zipfS);
     size_t i = 0;
-    for (const auto& op : operations) {
+    std::string key;
+    std::string val;
+
+    while (high_resolution_clock::now() < expEnd) {
+        // get key using Zipfian Generator
+        key = std::to_string(zipf.next());
+        val = "val" + std::to_string(i);
+
         // create channel to target server
         auto ch =
-            grpc::CreateChannel(op.server, grpc::InsecureChannelCredentials());
+            grpc::CreateChannel(server, grpc::InsecureChannelCredentials());
 
         // record time when the operation is initiated
         auto start = high_resolution_clock::now();
-        std::string opType;
+
+        std::string opType = "write";
+        std::cerr << "Writing key='" << key << "' value='"
+                    << val << "' to server='" << server
+                    << "'\n";
 
         try {
-            switch (op.type) {
-                case workload::OperationType::OP_WRITE: {
-                    opType = "write";
-                    std::cerr << "Writing key='" << op.key << "' value='"
-                              << op.value << "' to server='" << op.server
-                              << "'\n";
-                    auto resp = call_write(ch, op.key, op.value);
-                    break;
-                }
-                case workload::OperationType::OP_READ: {
-                    opType = "read";
-                    std::cerr << "Read operation not implemented yet.\n";
-                    break;
-                }
-                case workload::OperationType::OP_GET_STATE: {
-                    opType = "get_state";
-                    std::cerr << "Getting state from server='" << op.server
-                              << "'\n";
-                    auto resp = call_get_state(ch);
-                    break;
-                }
-                case workload::OperationType::OP_BROADCAST: {
-                    opType = "broadcast";
-                    int id = 1;
-                    auto resp = call_broadcast(ch, op.value, id++, true);
-                    std::cerr << "reply='" << resp.reply()
-                              << "' from=" << resp.from();
-                    if (resp.broadcasted_to_size() > 0) {
-                        std::cerr << " | acks:";
-                        for (const auto& s : resp.broadcasted_to())
-                            std::cerr << " [" << s << "]";
-                    }
-                    std::cerr << "\n";
-                    break;
-                }
-            }
+            auto resp = call_write(ch, key, val);
         } catch (const std::exception& e) {
-            std::cerr << "error contacting " << op.server << ": " << e.what()
+            std::cerr << "error contacting " << server << ": " << e.what()
                       << "\n";
-        }
+        };
 
         // record time when request is completed
         auto end = high_resolution_clock::now();
 
         // calculate request latency
         int64_t latency = duration_cast<nanoseconds>(end - start).count();
-        std::cout << opType << "," << latency << "," << op.key << "," << i
+        std::cout << opType << "," << latency << "," << key << "," << i
                   << "\n";
         i++;
     }
