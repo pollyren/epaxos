@@ -47,7 +47,7 @@ static demo::WriteResp call_write(const std::shared_ptr<Channel>& ch,
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
     Status s = stub->ClientWriteReq(&ctx, req, &resp);
-    std::cerr << "Response status: " << resp.status() << "\n";
+    LOG("Response status: " << resp.status() << std::endl);
     if (!s.ok())
         throw std::runtime_error("RPC failed with status " +
                                  std::to_string(s.error_code()) + ": " +
@@ -63,7 +63,7 @@ static demo::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
     Status s = stub->ClientGetStateReq(&ctx, req, &resp);
-    std::cerr << "Response state: " << resp.state() << "\n";
+    LOG("Response state: " << resp.state() << std::endl);
     if (!s.ok())
         throw std::runtime_error("RPC failed with status " +
                                  std::to_string(s.error_code()) + ": " +
@@ -117,9 +117,9 @@ int run_ep_client(int argc, char** argv) {
         auto start = high_resolution_clock::now();
 
         std::string opType = "write";
-        std::cerr << "Writing key='" << key << "' value='"
+        LOG("Writing key='" << key << "' value='"
                     << val << "' to server='" << server
-                    << "'\n";
+                    << "'\n");
 
         try {
             auto resp = call_write(ch, key, val);
