@@ -24,6 +24,7 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
+using namespace std::chrono;
 #include "absl/log/initialize.h"
 
 namespace {
@@ -480,7 +481,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             if (reply.ok()) {
                 agreeCount++;
             }
-            if (agreeCount >= (peerSize / 2 + 1)) {
+            if (agreeCount >= (peerSize / 2)) {
                 break;
             }
         }
@@ -589,6 +590,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         LOG("----------------------------\n[" << thisReplica_
                   << "] Sending PreAccept RPCs: " << std::endl);
 
+        auto preStart = high_resolution_clock::now();
+
         grpc::CompletionQueue cq;
         struct AsyncCall {
             grpc::ClientContext ctx;
@@ -662,13 +665,22 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             if (reply.ok() && !reply.conflict()) {
                 agreeCount++;
             }
-            if (agreeCount >= (peerSize / 2 + 1)) {
+            if (agreeCount >= fastQuorumNames_.size()) {
                 break;
             }
         }
 
         // deciding the fast path or slow path
-        if (agreeCount >= (peerSize / 2 + 1)) {
+        if (agreeCount >= fastQuorumNames_.size()) {
+            auto preEnd = high_resolution_clock::now();
+            // calculate request latency
+            int64_t latency = duration_cast<nanoseconds>(preEnd - preStart).count();
+            LOG("[" << thisReplica_
+                      << "] PreAccept phase took " << latency 
+                      << "nanoseconds for instance: "
+                      << newInstance.id.replica_id << "."
+                      << newInstance.id.replicaInstance_id
+                      << std::endl);
             LOG("[" << thisReplica_
                       << "] PreAccept phase succeeded for instance: "
                       << newInstance.id.replica_id << "."
@@ -881,8 +893,28 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         LOG("[" << thisReplica_ << "] Received Commit for instance "
                   << req->id().replica_id() << "."
                   << req->id().instance_seq_id() << std::endl);
-        instances[req->id().replica_id()][req->id().instance_seq_id()].status =
-            epaxosTypes::Status::COMMITTED;
+
+        // store the instance locally
+        epaxosTypes::Instance newInstance;
+        newInstance.status = epaxosTypes::Status::COMMITTED;
+        // construct instance ID from request
+        epaxosTypes::InstanceID instanceId;
+        instanceId.replica_id = req->id().replica_id();
+        instanceId.replicaInstance_id = req->id().instance_seq_id();
+        newInstance.id = instanceId;
+
+        // resize instance vector if needed
+        if (instances[instanceId.replica_id].size() <=
+            instanceId.replicaInstance_id) {
+            instances[instanceId.replica_id].resize(
+                instanceId.replicaInstance_id + 1);
+        }
+        instances[instanceId.replica_id][instanceId.replicaInstance_id] =
+            newInstance;
+
+        LOG("[" << thisReplica_
+                  << "] Committed instance: " << instanceId.replica_id
+                  << "." << instanceId.replicaInstance_id << std::endl);
         return Status::OK;
     }
 
@@ -1044,8 +1076,21 @@ int run_ep_server(int argc, char** argv) {
             peer_names.push_back(p.first);
         }
 
-        EPaxosReplica service(name, peer_name_to_addr, peer_names,
-                              peer_names);  // create a server structure
+        int f = peer_names.size() / 2;
+        size_t fast_path_quorum_size = f + (f + 1) / 2;
+        size_t slow_path_quorum_size = f + 1;
+
+        LOG("[" << name << "] Determined f=" << f 
+                  << ", fast_path_quorum_size=" << fast_path_quorum_size
+                  << ", slow_path_quorum_size=" << slow_path_quorum_size 
+                  << std::endl);
+
+        std::vector<std::string> fast_path_quorum(peer_names.begin(), peer_names.begin() + fast_path_quorum_size - 1);
+        std::vector<std::string> slow_path_quorum(peer_names.begin(), peer_names.begin() + slow_path_quorum_size - 1);
+
+
+        EPaxosReplica service(name, peer_name_to_addr, fast_path_quorum,
+                              slow_path_quorum);  // create a server structure
 
         grpc::ServerBuilder builder;
         const std::string addr = std::string("0.0.0.0:") + port;

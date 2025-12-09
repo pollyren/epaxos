@@ -71,17 +71,16 @@ class ProjectCodebase(ExperimentCodebase):
             config['base_remote_bin_directory_nfs'],
             config['bin_directory_name'], config['server_bin_name'])
         exp_directory = remote_exp_directory
+        replica_host = config["server_names"][i]
         replica_port = config['server_port']
         replication_protocol = self.get_replication_protocol_arg_from_name(config['replication_protocol'])
         peers = [
-            f"{name}:{config['server_port']}"
-            for j, name in enumerate(config["server_names"])
-            if j != i
+            f"{neighbor[1]}:{config['server_port']}"
+            for _, neighbor in enumerate(config["server_neighbors"][replica_host])
         ]
         peersName2Addr = [
-            f"S{j}==={name}:{config['server_port']}"
-            for j, name in enumerate(config["server_names"])
-            if j != i
+            f"S{neighbor[0]}==={neighbor[1]}:{config['server_port']}"
+            for _, neighbor in enumerate(config["server_neighbors"][replica_host])
         ]
         stats_file = os.path.join(exp_directory,
                                     config['out_directory_name'],
