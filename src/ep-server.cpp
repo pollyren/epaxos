@@ -480,7 +480,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             if (reply.ok()) {
                 agreeCount++;
             }
-            if (agreeCount >= (peerSize / 2 + 1)) {
+            if (agreeCount >= (peerSize / 2)) {
                 break;
             }
         }
@@ -662,13 +662,13 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             if (reply.ok() && !reply.conflict()) {
                 agreeCount++;
             }
-            if (agreeCount >= (peerSize / 2 + 1)) {
+            if (agreeCount >= fastQuorumNames_.size()) {
                 break;
             }
         }
 
         // deciding the fast path or slow path
-        if (agreeCount >= (peerSize / 2 + 1)) {
+        if (agreeCount >= fastQuorumNames_.size()) {
             LOG("[" << thisReplica_
                       << "] PreAccept phase succeeded for instance: "
                       << newInstance.id.replica_id << "."
