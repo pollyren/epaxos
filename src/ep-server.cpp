@@ -24,6 +24,7 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
+using namespace std::chrono;
 #include "absl/log/initialize.h"
 
 namespace {
@@ -589,6 +590,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         LOG("----------------------------\n[" << thisReplica_
                   << "] Sending PreAccept RPCs: " << std::endl);
 
+        auto preStart = high_resolution_clock::now();
+
         grpc::CompletionQueue cq;
         struct AsyncCall {
             grpc::ClientContext ctx;
@@ -669,6 +672,15 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         // deciding the fast path or slow path
         if (agreeCount >= fastQuorumNames_.size()) {
+            auto preEnd = high_resolution_clock::now();
+            // calculate request latency
+            int64_t latency = duration_cast<nanoseconds>(preEnd - preStart).count();
+            LOG("[" << thisReplica_
+                      << "] PreAccept phase took " << latency 
+                      << "nanoseconds for instance: "
+                      << newInstance.id.replica_id << "."
+                      << newInstance.id.replicaInstance_id
+                      << std::endl);
             LOG("[" << thisReplica_
                       << "] PreAccept phase succeeded for instance: "
                       << newInstance.id.replica_id << "."
