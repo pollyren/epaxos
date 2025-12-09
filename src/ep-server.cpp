@@ -11,21 +11,17 @@
 #include <vector>
 
 #include "../build/generated/epaxos.grpc.pb.h"
+#include "absl/log/initialize.h"
 #include "epaxos.pb.h"
 #include "graph.hpp"
 #include "types.hpp"
 #include "utils.h"
-
-#define DEBUG 1
-
-#define LOG(msg) do { if (DEBUG) std::cerr << msg; } while (0)
 
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 using namespace std::chrono;
-#include "absl/log/initialize.h"
 
 namespace {
 std::vector<std::string> split(const std::string& s, char sep) {
