@@ -893,8 +893,28 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         LOG("[" << thisReplica_ << "] Received Commit for instance "
                   << req->id().replica_id() << "."
                   << req->id().instance_seq_id() << std::endl);
-        instances[req->id().replica_id()][req->id().instance_seq_id()].status =
-            epaxosTypes::Status::COMMITTED;
+
+        // store the instance locally
+        epaxosTypes::Instance newInstance;
+        newInstance.status = epaxosTypes::Status::COMMITTED;
+        // construct instance ID from request
+        epaxosTypes::InstanceID instanceId;
+        instanceId.replica_id = req->id().replica_id();
+        instanceId.replicaInstance_id = req->id().instance_seq_id();
+        newInstance.id = instanceId;
+
+        // resize instance vector if needed
+        if (instances[instanceId.replica_id].size() <=
+            instanceId.replicaInstance_id) {
+            instances[instanceId.replica_id].resize(
+                instanceId.replicaInstance_id + 1);
+        }
+        instances[instanceId.replica_id][instanceId.replicaInstance_id] =
+            newInstance;
+
+        LOG("[" << thisReplica_
+                  << "] Committed instance: " << instanceId.replica_id
+                  << "." << instanceId.replicaInstance_id << std::endl);
         return Status::OK;
     }
 
