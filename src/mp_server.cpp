@@ -20,6 +20,7 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
+using namespace std::chrono;
 
 namespace {
 std::vector<std::string> split(const std::string& s, char sep) {
@@ -315,17 +316,40 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             throw std::runtime_error("RPC failed: instance counter mismatch");
         }
 
+       
+
         // Accept Phase
+        auto accStart = high_resolution_clock::now();
         bool successAccept = accept(newInstance);
         if (!successAccept) {
             return Status::CANCELLED;
         }
 
+        auto accEnd = high_resolution_clock::now();
+        // calculate request latency
+        int64_t latency = duration_cast<nanoseconds>(accEnd - accStart).count();
+        std::cout << "[" << thisReplica_
+                    << "] Accept phase took " << latency 
+                    << "nanoseconds for instance: "
+                    << newInstance.id.replica_id << "."
+                    << newInstance.id.replicaInstance_id
+                    << std::endl;
+
         // Commit Phase
+        auto commStart = high_resolution_clock::now();
         bool successCommit = commit(newInstance);
         if (!successCommit) {
             return Status::CANCELLED;
         }
+        // calculate request latency
+        auto commEnd = high_resolution_clock::now();
+        latency = duration_cast<nanoseconds>(commEnd - commStart).count();
+        std::cout << "[" << thisReplica_
+                    << "] Commit phase took " << latency 
+                    << "nanoseconds for instance: "
+                    << newInstance.id.replica_id << "."
+                    << newInstance.id.replicaInstance_id
+                    << std::endl;
 
         // Reply to client
         std::cout << "[" << thisReplica_
