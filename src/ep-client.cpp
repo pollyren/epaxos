@@ -104,14 +104,14 @@ int run_ep_client(int argc, char** argv) {
     std::string key;
     std::string val;
 
+    // create channel to target server
+    auto ch =
+        grpc::CreateChannel(server, grpc::InsecureChannelCredentials());
+
     while (high_resolution_clock::now() < expEnd) {
         // get key using Zipfian Generator
         key = std::to_string(zipf.next());
         val = "val" + std::to_string(i);
-
-        // create channel to target server
-        auto ch =
-            grpc::CreateChannel(server, grpc::InsecureChannelCredentials());
 
         // record time when the operation is initiated
         auto start = high_resolution_clock::now();
