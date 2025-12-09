@@ -179,7 +179,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   << instances_to_string() << std::endl);
 
         Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph =
-            buildDependencyGraphForInstanceID(inst.id);
+            buildDependencyGraphForInstanceID(inst.id, inst.cmd.key);
 
         // topological sort the dependency graph
         auto [isDAG, sortedIds] = depGraph.topologicalSort();
@@ -253,7 +253,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return result;
     }
 
-    void countDependenciesForInstanceID(const epaxosTypes::InstanceID id, const std::string& key) {
+    Graph<epaxosTypes::InstanceID, InstanceIDHash>
+    buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id, const std::string& key) {
         // Create a graph to represent dependencies
         Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph(true);
 
@@ -320,6 +321,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   << findInstanceById(id).attr.deps.size() << std::endl);
 
         std::cout << "write," << id.replicaInstance_id << "," << dependencyCount << "," << depGraph.size() << "," << key << std::endl;
+        return depGraph;
     }
 
     void commit(const epaxosTypes::Instance newInstance) {
@@ -692,7 +694,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                           << printInstance(newInstance)
                           << "; Skipping execution." << std::endl);
                 value = "<suceessful>";
-                countDependenciesForInstanceID(newInstance.id, newInstance.cmd.key);
+                buildDependencyGraphForInstanceID(newInstance.id, newInstance.cmd.key);
             } else {
                 value = execute(newInstance);
             }
