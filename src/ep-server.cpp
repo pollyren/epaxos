@@ -179,7 +179,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   << instances_to_string() << std::endl);
 
         Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph =
-            buildDependencyGraphForInstanceID(inst.id);
+            buildDependencyGraphForInstanceID(inst.id, inst.cmd.key);
 
         // topological sort the dependency graph
         auto [isDAG, sortedIds] = depGraph.topologicalSort();
@@ -253,14 +253,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return result;
     }
 
-    int countDependenciesForInstanceID(const epaxosTypes::InstanceID id){
-        Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph = buildDependencyGraphForInstanceID(id);
-        return depGraph.size();
-    }
-
-
     Graph<epaxosTypes::InstanceID, InstanceIDHash>
-    buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id) {
+    buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id, const std::string& key) {
         // Create a graph to represent dependencies
         Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph(true);
 
@@ -326,7 +320,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         LOG("[" << thisReplica_ << "] Dependency list count: "
                   << findInstanceById(id).attr.deps.size() << std::endl);
 
-        std::cout << "write," << id.replicaInstance_id << "," << dependencyCount << "," << depGraph.size() << ",";
+        std::cout << "write," << id.replicaInstance_id << "," << dependencyCount << "," << depGraph.size() << "," << key << std::endl;
         return depGraph;
     }
 
@@ -676,7 +670,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             // calculate request latency
             int64_t latency = duration_cast<nanoseconds>(preEnd - preStart).count();
             LOG("[" << thisReplica_
-                      << "] PreAccept phase took " << latency 
+                      << "] PreAccept phase took " << latency
                       << "nanoseconds for instance: "
                       << newInstance.id.replica_id << "."
                       << newInstance.id.replicaInstance_id
@@ -700,8 +694,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                           << printInstance(newInstance)
                           << "; Skipping execution." << std::endl);
                 value = "<suceessful>";
-                countDependenciesForInstanceID(newInstance.id);
-                std::cout << newInstance.cmd.key << std::endl;
+                buildDependencyGraphForInstanceID(newInstance.id, newInstance.cmd.key);
             } else {
                 value = execute(newInstance);
             }
@@ -1080,9 +1073,9 @@ int run_ep_server(int argc, char** argv) {
         size_t fast_path_quorum_size = f + (f + 1) / 2;
         size_t slow_path_quorum_size = f + 1;
 
-        LOG("[" << name << "] Determined f=" << f 
+        LOG("[" << name << "] Determined f=" << f
                   << ", fast_path_quorum_size=" << fast_path_quorum_size
-                  << ", slow_path_quorum_size=" << slow_path_quorum_size 
+                  << ", slow_path_quorum_size=" << slow_path_quorum_size
                   << std::endl);
 
         std::vector<std::string> fast_path_quorum(peer_names.begin(), peer_names.begin() + fast_path_quorum_size - 1);
