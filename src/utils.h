@@ -4,6 +4,10 @@
 #include <random>
 #include <cmath>
 
+// logging macros
+#define EP_MP_LOGGING 1
+#define LOG(msg) do { if (EP_MP_LOGGING) std::cerr << msg; } while (0)
+
 void trim(std::string& t);
 std::map<std::string, std::string> parse_map_mixed_simple(
     const std::string& str);

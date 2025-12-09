@@ -16,10 +16,6 @@
 #include "multipaxos.pb.h"
 #include "utils.h"
 
-#define DEBUG 1
-
-#define LOG(msg) do { if (DEBUG) std::cerr << msg; } while (0)
-
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;

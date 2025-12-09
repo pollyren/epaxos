@@ -89,7 +89,7 @@ int run_ep_client(int argc, char** argv) {
         if (a.rfind("--expLength=", 0) == 0)
             expLength = std::stoi(a.substr(12));
         else if (a.rfind("--numKeys=", 0) == 0) {
-            numKeys = std::stoi(a.substr(10)); 
+            numKeys = std::stoi(a.substr(10));
         } else if (a.rfind("--zipfS=", 0) == 0) {
             zipfS = std::stoi((a.substr(8)));
         } else if (a.rfind("--server=", 0) == 0) {
