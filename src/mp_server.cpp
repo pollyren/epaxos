@@ -272,10 +272,6 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         }
 
         for (const auto& a : majority_quorum_names) {
-            if (peer_name_to_addrs.find(a) == peer_name_to_addrs.end()) {
-                throw std::runtime_error(
-                    "Majority quorum name not found in peer list");
-            }
             majorityQuorumNames_.push_back(a);
         }
 
