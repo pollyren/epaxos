@@ -214,7 +214,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         LOG("[" << thisReplica_ << "] Current replica state: \n"
                   << instances_to_string() << std::endl);
 
-        // Broadcast commit to majority quorum members
+        // Broadcast commit to all peers
         mp::CommitReq commitReq;
 
         // prepare id L.i for this instance
@@ -224,7 +224,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         commitReq.mutable_id()->CopyFrom(id);
         commitReq.set_sender(thisReplica_);
 
-        // send Commit RPCs asynchronously to all majority quorum members
+        // send Commit RPCs asynchronously to all peers
         LOG("----------------------------\n[" << thisReplica_
                   << "] Sending Commit RPCs: " << std::endl);
 
@@ -240,8 +240,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // create a mapping from peer name to its async call
         std::map<std::string, std::unique_ptr<AsyncCall>> calls;
 
-        // now send async Accept RPCs to all majority quorum members
-        for (const auto& peerName : majorityQuorumNames_) {
+        // now send async Commit RPCs to all majority quorum members
+        for (const auto& [peerName, _] : peersNameToStub_) {
             // allocate an async call object
             auto* call = new AsyncCall;
 
@@ -262,7 +262,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
    public:
     MultiPaxosReplica(
         std::string name, bool is_leader,
-        const std::map<std::string, std::string>& peer_name_to_addrs)
+        const std::map<std::string, std::string>& peer_name_to_addrs,
+        const std::vector<std::string>& majority_quorum_names)
         : thisReplica_(std::move(name)), is_leader_(is_leader) {
         // keep a list of peer addresses and stubs
         for (const auto& [name, addr] : peer_name_to_addrs) {
@@ -270,16 +271,12 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                 grpc::CreateChannel(addr, grpc::InsecureChannelCredentials()));
         }
 
-        // Compute majority size: n/2 + 1 (including itself)
-        const size_t n = peersNameToStub_.size();
-        const size_t majoritySize = n / 2;
-
-        // Initialize the majority quorum
-        size_t count = 0;
-        for (const auto& [name, addr] : peer_name_to_addrs) {
-            if (count >= majoritySize) break;
-            majorityQuorumNames_.push_back(name);
-            ++count;
+        for (const auto& a : majority_quorum_names) {
+            if (peer_name_to_addrs.find(a) == peer_name_to_addrs.end()) {
+                throw std::runtime_error(
+                    "Majority quorum name not found in peer list");
+            }
+            majorityQuorumNames_.push_back(a);
         }
 
         // Initialize instance map for each replica (peer)
@@ -623,8 +620,19 @@ int run_mp_server(int argc, char** argv) {
             }
         }
 
+        const auto peer_names = split(peers_csv, ',');
+
+        int f = peer_names.size() / 2;
+        size_t majority_quorum_size = f + 1;
+
+        LOG("[" << name << "] Determined f=" << f
+                  << ", majority_quorum_size=" << majority_quorum_size
+                  << std::endl);
+
+        std::vector<std::string> majority_quorum_names(peer_names.begin(), peer_names.begin() + majority_quorum_size - 1);
+
         MultiPaxosReplica service(
-            name, is_leader, peer_name_to_addr);  // create a server structure
+            name, is_leader, peer_name_to_addr, majority_quorum_names);  // create a server structure
 
         grpc::ServerBuilder builder;
         const std::string addr = std::string("0.0.0.0:") + port;
