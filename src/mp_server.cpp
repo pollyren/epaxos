@@ -626,6 +626,13 @@ int run_mp_server(int argc, char** argv) {
             peer_names.push_back(p.first);
         }
 
+        LOG("Peer names: ");
+        for (size_t i = 0; i < peer_names.size(); i++) {
+            if (i > 0) std::cout << ", ";
+            LOG(peer_names[i]);
+        }
+        LOG("\n");
+
         int f = peer_names.size() / 2;
         size_t majority_quorum_size = f + 1;
 
