@@ -271,7 +271,12 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                 grpc::CreateChannel(addr, grpc::InsecureChannelCredentials()));
         }
 
+        // initialize a set of majority quorum addresses
         for (const auto& a : majority_quorum_names) {
+            if (peer_name_to_addrs.find(a) == peer_name_to_addrs.end()) {
+                throw std::runtime_error(
+                    "Fast quorum name not found in peer list");
+            }
             majorityQuorumNames_.push_back(a);
         }
 
@@ -616,7 +621,10 @@ int run_mp_server(int argc, char** argv) {
             }
         }
 
-        const auto peer_names = split(peers_csv, ',');
+        std::vector<std::string> peer_names;
+        for (const auto& p : peer_name_to_addr) {
+            peer_names.push_back(p.first);
+        }
 
         int f = peer_names.size() / 2;
         size_t majority_quorum_size = f + 1;
