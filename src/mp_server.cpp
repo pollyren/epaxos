@@ -276,9 +276,9 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
 
         // Initialize the majority quorum
         size_t count = 0;
-        for (const auto& [peerName, _] : peersNameToStub_) {
+        for (const auto& [name, addr] : peer_name_to_addrs) {
             if (count >= majoritySize) break;
-            majorityQuorumNames_.push_back(peerName);
+            majorityQuorumNames_.push_back(name);
             ++count;
         }
 
