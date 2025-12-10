@@ -621,9 +621,21 @@ int run_mp_server(int argc, char** argv) {
             }
         }
 
+        const auto peer_addrs = split(peers_csv, ',');
+        int f = peer_addrs.size() / 2;
+        size_t majority_quorum_size = f + 1;
+
+        LOG("[" << name << "] Determined f=" << f
+                  << ", majority_quorum_size=" << majority_quorum_size
+                  << std::endl);
+
         std::vector<std::string> peer_names;
-        for (const auto& p : peer_name_to_addr) {
-            peer_names.push_back(p.first);
+        for (const auto& addr : peer_addrs) {
+            for (const auto& [name, map_addr] : peer_name_to_addr) {
+                if (map_addr == addr) {
+                    peer_names.push_back(name);
+                }
+            }
         }
 
         LOG("Peer names: ");
@@ -633,12 +645,7 @@ int run_mp_server(int argc, char** argv) {
         }
         LOG("\n");
 
-        int f = peer_names.size() / 2;
-        size_t majority_quorum_size = f + 1;
-
-        LOG("[" << name << "] Determined f=" << f
-                  << ", majority_quorum_size=" << majority_quorum_size
-                  << std::endl);
+        
 
         std::vector<std::string> majority_quorum_names(peer_names.begin(), peer_names.begin() + majority_quorum_size - 1);
 
