@@ -1060,9 +1060,14 @@ int run_ep_server(int argc, char** argv) {
             }
         }
 
+        const auto peer_addrs = split(peers_csv, ',');
         std::vector<std::string> peer_names;
-        for (const auto& p : peer_name_to_addr) {
-            peer_names.push_back(p.first);
+        for (const auto& addr : peer_addrs) {
+            for (const auto& [name, map_addr] : peer_name_to_addr) {
+                if (map_addr == addr) {
+                    peer_names.push_back(name);
+                }
+            }
         }
 
         int f = peer_names.size() / 2;
