@@ -127,8 +127,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                                                                 acceptReq, &cq);
 
             // request notification when the operation finishes asynchronously
-            call->rpc->Finish(&call->reply, &call->status,
-                              (void*)peerName.data());
+            call->rpc->Finish(&call->reply, &call->status, (void*)new std::string(peerName));
+
 
             // store the call in the map
             calls.emplace(peerName, std::move(call));

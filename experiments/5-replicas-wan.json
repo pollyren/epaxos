@@ -135,12 +135,12 @@
       }
   },
   "client_total": [
-	  [5],
-    [5]
+	  [5, 10, 20, 40, 80],
+    [5, 10, 20, 40, 80]
   ],
   "client_processes_per_client_node": [
-	  [1],
-    [1]
+	  [1, 2, 4, 8, 16],
+    [1, 2, 4, 8, 16]
   ],
   "client_threads_per_process": 1,
   "client_conflict_percentage": -1,
@@ -165,11 +165,11 @@
       "series_indep_vars_idx": 0,
       "series_titles": ["Multi-Paxos", "EPaxos"],
       "x_var_is_config": false,
-      "x_var": ["run_stats", "app", "tput", "p50"],
+      "x_var": ["run_stats", "write", "tput", "p50"],
       "x_label": "Throughput (ops/s)",
       "y_label": "p99 Latency",
       "x_indep_vars_idx": 1,
-      "y_var": ["aggregate", "app", "p99"]
+      "y_var": ["aggregate", "write", "p99"]
     },
     {
       "name": "tput-lat-p50",
@@ -179,11 +179,11 @@
       "series_indep_vars_idx": 0,
       "series_titles": ["Multi-Paxos", "EPaxos"],
       "x_var_is_config": false,
-      "x_var": ["run_stats", "app", "tput", "p50"],
+      "x_var": ["run_stats", "write", "tput", "p50"],
       "x_label": "Throughput (ops/s)",
       "y_label": "p50 Latency",
       "x_indep_vars_idx": 1,
-      "y_var": ["aggregate", "app", "p50"]
+      "y_var": ["aggregate", "write", "p50"]
     }
   ],
   "plot_cdf_png_font": "DejaVu Sans,12",
