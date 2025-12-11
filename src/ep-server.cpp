@@ -570,6 +570,12 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         newInstance.cmd.value = std::string(req->value());
         newInstance.status = epaxosTypes::Status::PRE_ACCEPTED;
         newInstance.id.replica_id = thisReplica_;
+
+        // add dependencies/Maxsequence
+        auto deps = findDependencies(newInstance.cmd);
+        newInstance.attr.deps = deps;
+        newInstance.attr.seq = findMaxSeq(deps) + 1;
+
         std::unique_lock<std::mutex> lock(instances_mu_);
         newInstance.id.replicaInstance_id = instanceCounter_;
         instanceCounter_++;
@@ -578,12 +584,6 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   << "] Created new instance: " << newInstance.id.replica_id
                   << "." << newInstance.id.replicaInstance_id << std::endl);
 
-        // add dependencies/Maxsequence
-        auto deps = findDependencies(newInstance.cmd);
-        newInstance.attr.deps = deps;
-        newInstance.attr.seq = findMaxSeq(deps) + 1;
-
-        
         instances[thisReplica_].push_back(newInstance);
 
         if (instances[thisReplica_].size() != instanceCounter_) {
