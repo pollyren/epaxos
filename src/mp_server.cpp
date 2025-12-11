@@ -59,14 +59,19 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                        std::vector<struct multipaxosTypes::Instance>>
         instances;
 
+    // mutex for instances
+    mutable std::mutex instances_mu_;
+
     // return the string the current state (instances) of this replica
     std::string instances_to_string() {
         std::string res;
+        std::unique_lock<std::mutex> lock(instances_mu_);
         for (const auto& [replica, instVec] : instances) {
             for (const auto& instance : instVec) {
                 res += "  - " + printInstance(instance);
             }
         }
+        lock.unlock();
         return res;
     }
 
@@ -101,7 +106,16 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // mark the instance as accepted locally
         multipaxosTypes::Instance inst = newInstance;
         inst.status = multipaxosTypes::Status::ACCEPTED;
+
+        // resize the vector if needed
+        std::unique_lock<std::mutex> lock(instances_mu_);
+        if (instances[inst.id.replica_id].size() <=
+            inst.id.replicaInstance_id) {
+            instances[inst.id.replica_id].resize(
+                inst.id.replicaInstance_id + 1);
+        }
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+        lock.unlock();
 
         //  send Accept messages to all majority quorum members
         LOG("----------------------------\n[" << thisReplica_
@@ -112,6 +126,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             grpc::ClientContext ctx;
             mp::AcceptReply reply;
             grpc::Status status;
+            std::string peerName;
+            mp::AcceptReq request;
             std::unique_ptr<grpc::ClientAsyncResponseReader<mp::AcceptReply>>
                 rpc;
         };
@@ -122,13 +138,15 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // now send async Accept RPCs to all majority quorum members
         for (const auto& peerName : majorityQuorumNames_) {
             auto call = std::make_unique<AsyncCall>();
+            call->peerName = peerName;
+            call->request.CopyFrom(acceptReq);
 
             call->rpc = peersNameToStub_[peerName]->AsyncAccept(&call->ctx,
-                                                                acceptReq, &cq);
+                                                                call->request, &cq);
 
             // request notification when the operation finishes asynchronously
-            call->rpc->Finish(&call->reply, &call->status,
-                              (void*)peerName.data());
+            call->rpc->Finish(&call->reply, &call->status, call.get());
+
 
             // store the call in the map
             calls.emplace(peerName, std::move(call));
@@ -143,18 +161,18 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         std::map<std::string, mp::AcceptReply> acceptReplies;
 
         while (remaining > 0) {
-            void* tag;
-            bool ok = false;
+            AsyncCall* asyncCall;
+            bool ok;
 
             // wait for the next result from the completion queue
-            cq.Next(&tag, &ok);
+            cq.Next((void**)&asyncCall, &ok);
 
             if (!ok) {
                 // RPC stream broken
                 throw std::runtime_error("RPC stream error");
             }
 
-            std::string peerName = static_cast<const char*>(tag);
+            std::string peerName = asyncCall->peerName;
             auto& call = calls[peerName];
 
             if (!call->status.ok()) {
@@ -206,7 +224,16 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // mark the instance as committed
         multipaxosTypes::Instance inst = newInstance;
         inst.status = multipaxosTypes::Status::COMMITTED;
+
+        // resize instance vector if needed
+        std::unique_lock<std::mutex> lock(instances_mu_);
+        if (instances[inst.id.replica_id].size() <=
+            inst.id.replicaInstance_id) {
+            instances[inst.id.replica_id].resize(
+                inst.id.replicaInstance_id + 1);
+        }
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+        lock.unlock();
 
         LOG("[" << thisReplica_
                   << "] Committed instance: " << printInstance(inst)
@@ -233,6 +260,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             grpc::ClientContext ctx;
             mp::CommitReply reply;
             grpc::Status status;
+            std::string peerName;
+            mp::CommitReq request;
             std::unique_ptr<grpc::ClientAsyncResponseReader<mp::CommitReply>>
                 rpc;
         };
@@ -243,12 +272,14 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // now send async Commit RPCs to all majority quorum members
         for (const auto& [peerName, _] : peersNameToStub_) {
             // allocate an async call object
-            auto* call = new AsyncCall;
+            auto call = std::make_unique<AsyncCall>();
+            call->peerName = peerName;
+            call->request.CopyFrom(commitReq);
 
             // send the commit RPC
             call->rpc = peersNameToStub_[peerName]->AsyncCommit(&call->ctx,
-                                                                commitReq, &cq);
-            call->rpc->Finish(&call->reply, &call->status, call);
+                                                                call->request, &cq);
+            call->rpc->Finish(&call->reply, &call->status, call.get());
 
             LOG("[" << thisReplica_
                       << "] Sending CommitReq message to: " << peerName
@@ -282,7 +313,9 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
 
         // Initialize instance map for each replica (peer)
         for (const auto& [name, addr] : peer_name_to_addrs) {
+            std::unique_lock<std::mutex> lock(instances_mu_);
             instances[name] = std::vector<struct multipaxosTypes::Instance>();
+            lock.unlock();
         }
 
         peerSize = peer_name_to_addrs.size();
@@ -298,8 +331,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // Create new instance
         multipaxosTypes::Instance newInstance;
         newInstance.cmd.action = multipaxosTypes::Command::WRITE;
-        newInstance.cmd.key = req->key();
-        newInstance.cmd.value = req->value();
+        newInstance.cmd.key = std::string(req->key());
+        newInstance.cmd.value = std::string(req->value());
         newInstance.status = multipaxosTypes::Status::PREPARED;
         newInstance.id.replica_id = thisReplica_;
         newInstance.id.replicaInstance_id = instanceCounter_;
@@ -309,13 +342,15 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                   << "] Created new instance: " << newInstance.id.replica_id
                   << "." << newInstance.id.replicaInstance_id << std::endl);
 
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[thisReplica_].push_back(newInstance);
 
         if (instances[thisReplica_].size() != instanceCounter_) {
+            lock.unlock();
             throw std::runtime_error("RPC failed: instance counter mismatch");
         }
 
-
+        lock.unlock();
 
         // Accept Phase
         auto accStart = high_resolution_clock::now();
@@ -388,8 +423,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         multipaxosTypes::Command cmd;
         cmd.action =
             static_cast<multipaxosTypes::Command::Action>(req->cmd().action());
-        cmd.key = req->cmd().key();
-        cmd.value = req->cmd().value();
+        cmd.key = std::string(req->cmd().key());
+        cmd.value = std::string(req->cmd().value());
 
         LOG("  Command: action=" << req->cmd().action()
                   << " key=" << req->cmd().key()
@@ -407,6 +442,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         newInstance.id = instanceId;
 
         // resize instance vector if needed
+        std::unique_lock<std::mutex> lock(instances_mu_);
         if (instances[instanceId.replica_id].size() <=
             instanceId.replicaInstance_id) {
             instances[instanceId.replica_id].resize(
@@ -414,6 +450,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         }
         instances[instanceId.replica_id][instanceId.replicaInstance_id] =
             newInstance;
+
+        lock.unlock();
 
         LOG("[" << thisReplica_
                   << "] Accepted instance: " << newInstance.id.replica_id
@@ -453,6 +491,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                   << " value=" << req->cmd().value() << std::endl);
 
         // commit instance
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[req->id().replica_id()][req->id().instance_seq_id()].status =
             multipaxosTypes::Status::COMMITTED;
 
@@ -460,6 +499,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                   << printInstance(instances[req->id().replica_id()]
                                             [req->id().instance_seq_id()])
                   << std::endl);
+        lock.unlock();
         LOG("[" << thisReplica_ << "] Current replica state: \n"
                   << instances_to_string() << std::endl);
 

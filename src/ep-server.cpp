@@ -68,6 +68,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     std::unordered_map<std::string, std::vector<struct epaxosTypes::Instance>>
         instances;
 
+    // mutex for instances
+    mutable std::mutex instances_mu_;
+
     // return one instance
     std::string vec_to_string(const std::vector<epaxosTypes::InstanceID>& v) {
         std::ostringstream oss;
@@ -84,11 +87,13 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     // return the string the current state (instances) of this replica
     std::string instances_to_string() {
         std::string res;
+        std::unique_lock<std::mutex> lock(instances_mu_);
         for (const auto& [replica, instVec] : instances) {
             for (const auto& instance : instVec) {
                 res += "  - " + printInstance(instance);
             }
         }
+        lock.unlock();
         return res;
     }
 
@@ -111,6 +116,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         std::vector<epaxosTypes::InstanceID> deps;
 
         // scan through all instances to find dependencies
+        std::unique_lock<std::mutex> lock(instances_mu_);
         for (const auto& [replica, instVec] : instances) {
             for (const auto& inst : instVec) {
                 // if key over-laps and not a read command, add to deps
@@ -120,6 +126,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                 }
             }
         }
+        lock.unlock();
 
         return deps;
     }
@@ -142,12 +149,15 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     // return the instance given its ID Q.i
     epaxosTypes::Instance findInstanceById(const epaxosTypes::InstanceID id) {
         // check if instance exists
+        std::unique_lock<std::mutex> lock(instances_mu_);
         if (instances.find(id.replica_id) == instances.end() ||
             id.replicaInstance_id >= instances[id.replica_id].size()) {
+            lock.unlock();
             throw std::runtime_error("FindInstanceById: Instance not found");
         } else {
             epaxosTypes::Instance inst =
                 instances[id.replica_id][id.replicaInstance_id];
+            lock.unlock();
 
             // make sure the information of Q.i matches the instance found
             assert(inst.id.replica_id == id.replica_id &&
@@ -172,7 +182,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // mark the instance as committed
         epaxosTypes::Instance inst = newInstance;
         inst.status = epaxosTypes::Status::COMMITTED;
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+        lock.unlock();
 
         LOG("[" << thisReplica_
                   << "] Committed instance: " << printInstance(inst)
@@ -338,7 +350,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // mark the instance as committed
         epaxosTypes::Instance inst = newInstance;
         inst.status = epaxosTypes::Status::COMMITTED;
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+        lock.unlock();
 
         LOG("[" << thisReplica_
                   << "] Committed instance: " << printInstance(inst)
@@ -373,17 +387,21 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             grpc::ClientContext ctx;
             demo::CommitReply reply;
             grpc::Status status;
+            std::string peerName;
+            demo::CommitReq request;
             std::unique_ptr<grpc::ClientAsyncResponseReader<demo::CommitReply>>
                 rpc;
         };
 
         for (const auto& [peerName, stub] : peersNameToStub_) {
             // allocate an async call object
-            auto* call = new AsyncCall;
+            auto call = std::make_unique<AsyncCall>();
+            call->peerName = peerName;
+            call->request.CopyFrom(commitReq);
 
             // send the commit RPC
-            call->rpc = stub->AsyncCommit(&call->ctx, commitReq, &cq);
-            call->rpc->Finish(&call->reply, &call->status, call);
+            call->rpc = stub->AsyncCommit(&call->ctx, call->request, &cq);
+            call->rpc->Finish(&call->reply, &call->status, call.get());
 
             LOG("  Sent Commit RPC to " << peerName << std::endl);
         }
@@ -398,8 +416,10 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         demo::AcceptReq acceptReq;
 
         // set instance to accepted
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[newInstance.id.replica_id][newInstance.id.replicaInstance_id]
             .status = epaxosTypes::Status::ACCEPTED;
+        lock.unlock();
 
         // prepare the seq
         acceptReq.set_seq(newInstance.attr.seq);
@@ -423,6 +443,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             grpc::ClientContext ctx;
             demo::AcceptReply reply;
             grpc::Status status;
+            std::string peerName;
+            demo::AcceptReq request;
 
             std::unique_ptr<grpc::ClientAsyncResponseReader<demo::AcceptReply>>
                 rpc;
@@ -434,13 +456,14 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // now send async Accept RPCs to all slow quorum members
         for (const auto& peerName : slowQuorumNames_) {
             auto call = std::make_unique<AsyncCall>();
-
+            call->peerName = peerName;
+            call->request.CopyFrom(acceptReq);
             call->rpc = peersNameToStub_[peerName]->AsyncAccept_(
-                &call->ctx, acceptReq, &cq);
+                &call->ctx, call->request, &cq);
 
             // request notification when the operation finishes asynchronously
-            call->rpc->Finish(&call->reply, &call->status,
-                              (void*)peerName.data());
+            call->rpc->Finish(&call->reply, &call->status, call.get());
+
 
             // store the call in the map
             calls.emplace(peerName, std::move(call));
@@ -453,18 +476,18 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         std::map<std::string, demo::AcceptReply> acceptReplies;
 
         while (remaining > 0) {
-            void* tag;
-            bool ok = false;
+            AsyncCall* asyncCall;
+            bool ok;
 
             // wait for the next result from the completion queue
-            cq.Next(&tag, &ok);
+            cq.Next((void**)&asyncCall, &ok);
 
             if (!ok) {
                 // RPC stream broken
                 throw std::runtime_error("RPC stream error");
             }
 
-            std::string peerName = static_cast<const char*>(tag);
+            std::string peerName = asyncCall->peerName;
             auto& call = calls[peerName];
 
             if (!call->status.ok()) {
@@ -525,9 +548,11 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
 
         // initialize instance map for each replica (peer)
+        std::unique_lock<std::mutex> lock(instances_mu_);
         for (const auto& [name, addr] : peer_name_to_addrs) {
             instances[name] = std::vector<struct epaxosTypes::Instance>();
         }
+        lock.unlock();
 
         peerSize = peer_name_to_addrs.size();
     }
@@ -540,8 +565,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         epaxosTypes::Instance newInstance;
         newInstance.cmd.action = epaxosTypes::Command::WRITE;
-        newInstance.cmd.key = req->key();
-        newInstance.cmd.value = req->value();
+        newInstance.cmd.key = std::string(req->key());
+        newInstance.cmd.value = std::string(req->value());
         newInstance.status = epaxosTypes::Status::PRE_ACCEPTED;
         newInstance.id.replica_id = thisReplica_;
         newInstance.id.replicaInstance_id = instanceCounter_;
@@ -556,11 +581,15 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         newInstance.attr.deps = deps;
         newInstance.attr.seq = findMaxSeq(deps) + 1;
 
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[thisReplica_].push_back(newInstance);
 
         if (instances[thisReplica_].size() != instanceCounter_) {
+            lock.unlock();
             throw std::runtime_error("RPC failed: instance counter mismatch");
         }
+
+        lock.unlock();
 
         // Now prepare and send pre-accept messages
         demo::PreAcceptReq preAcceptReq;
@@ -601,6 +630,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             grpc::ClientContext ctx;
             demo::PreAcceptReply reply;
             grpc::Status status;
+            std::string peerName;
+            demo::PreAcceptReq request;
 
             std::unique_ptr<
                 grpc::ClientAsyncResponseReader<demo::PreAcceptReply>>
@@ -613,13 +644,14 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // now send async PreAccept RPCs to all fast quorum members
         for (const auto& peerName : fastQuorumNames_) {
             auto call = std::make_unique<AsyncCall>();
-
+            call->peerName = peerName;
+            call->request.CopyFrom(preAcceptReq);
             call->rpc = peersNameToStub_[peerName]->AsyncPreAccept(
-                &call->ctx, preAcceptReq, &cq);
+                &call->ctx, call->request, &cq);
 
             // request notification when the operation finishes asynchronously
             call->rpc->Finish(&call->reply, &call->status,
-                              (void*)peerName.data());
+                              call.get());
 
             // store the call in the map
             calls.emplace(peerName, std::move(call));
@@ -632,18 +664,18 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         std::map<std::string, demo::PreAcceptReply> preAcceptReplies;
 
         while (remaining > 0) {
-            void* tag;
-            bool ok = false;
+            AsyncCall* asyncCall;
+            bool ok;
 
             // wait for the next result from the completion queue
-            cq.Next(&tag, &ok);
+            cq.Next((void**)&asyncCall, &ok);
 
             if (!ok) {
                 // RPC stream broken
                 throw std::runtime_error("RPC stream error");
             }
 
-            std::string peerName = static_cast<const char*>(tag);
+            std::string peerName = asyncCall->peerName;
             auto& call = calls[peerName];
 
             if (!call->status.ok()) {
@@ -744,8 +776,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         epaxosTypes::Command cmd;
         cmd.action =
             static_cast<epaxosTypes::Command::Action>(req->cmd().action());
-        cmd.key = req->cmd().key();
-        cmd.value = req->cmd().value();
+        cmd.key = std::string(req->cmd().key());
+        cmd.value = std::string(req->cmd().value());
 
         LOG("  Command: action=" << req->cmd().action()
                   << " key=" << req->cmd().key()
@@ -837,6 +869,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         newInstance.attr.seq = proposedSeq;
 
         // resize instance vector if needed
+        std::unique_lock<std::mutex> lock(instances_mu_);
         if (instances[instanceId.replica_id].size() <=
             instanceId.replicaInstance_id) {
             instances[instanceId.replica_id].resize(
@@ -844,6 +877,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
         instances[instanceId.replica_id][instanceId.replicaInstance_id] =
             newInstance;
+        
+        lock.unlock();
 
         LOG("[" << thisReplica_
                   << "] Stored new instance: " << newInstance.id.replica_id
@@ -881,8 +916,10 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   << std::endl);
 
         // set instances[L][i] to accepted
+       std::unique_lock<std::mutex> lock(instances_mu_);
         instances[req->id().replica_id()][req->id().instance_seq_id()].status =
             epaxosTypes::Status::ACCEPTED;
+        lock.unlock();
 
         // prepare the reply message, i.e., set ok to true
         resp->set_ok(true);
@@ -907,6 +944,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         newInstance.id = instanceId;
 
         // resize instance vector if needed
+        std::unique_lock<std::mutex> lock(instances_mu_);
         if (instances[instanceId.replica_id].size() <=
             instanceId.replicaInstance_id) {
             instances[instanceId.replica_id].resize(
@@ -914,6 +952,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
         instances[instanceId.replica_id][instanceId.replicaInstance_id] =
             newInstance;
+        lock.unlock();
 
         LOG("[" << thisReplica_
                   << "] Committed instance: " << instanceId.replica_id

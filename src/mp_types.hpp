@@ -35,6 +35,39 @@ struct Command {
     } action;           // action type
     std::string key;    // key for the operation
     std::string value;  // value for write operation
+
+    // default constructor
+    Command() : action(DUMMY), key(), value() {}
+
+    // copy constructor
+    Command(const Command& other)
+        : action(other.action), key(other.key), value(other.value) {}
+
+    // move constructor (important!)
+    Command(Command&& other) noexcept
+        : action(other.action),
+          key(std::move(other.key)),
+          value(std::move(other.value)) {}
+
+    // copy assignment
+    Command& operator=(const Command& other) {
+        if (this != &other) {
+            action = other.action;
+            key = other.key;
+            value = other.value;
+        }
+        return *this;
+    }
+
+    // move assignment
+    Command& operator=(Command&& other) noexcept {
+        if (this != &other) {
+            action = other.action;
+            key = std::move(other.key);
+            value = std::move(other.value);
+        }
+        return *this;
+    }
 };
 
 // instance status
@@ -60,7 +93,40 @@ struct Instance {
     Status status;
     InstanceID id;
 
+    // default constructor
     Instance() : status(Status::NONE) {}
+
+    // copy constructor
+    Instance(const Instance& other)
+        : cmd(other.cmd),
+          status(other.status),
+          id(other.id) {}
+
+    // move constructor
+    Instance(Instance&& other) noexcept
+        : cmd(std::move(other.cmd)),
+          status(other.status),
+          id(std::move(other.id)) {}
+
+    // copy assignment
+    Instance& operator=(const Instance& other) {
+        if (this != &other) {
+            cmd = other.cmd;
+            status = other.status;
+            id = other.id;
+        }
+        return *this;
+    }
+
+    // move assignment
+    Instance& operator=(Instance&& other) noexcept {
+        if (this != &other) {
+            cmd = std::move(other.cmd);
+            status = other.status;
+            id = std::move(other.id);
+        }
+        return *this;
+    }
 };
 
 }  // namespace multipaxosTypes

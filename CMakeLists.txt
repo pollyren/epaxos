@@ -13,6 +13,9 @@ set(MP_PROTO_FILE ${PROTO_DIR}/multipaxos.proto)
 set(GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GEN_DIR})
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer -g -O1")
+set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+
 # Generate *.pb.cc / *.grpc.pb.cc
 add_custom_command(
   OUTPUT
@@ -86,3 +89,6 @@ add_custom_target(copy_workload ALL
         ${CMAKE_BINARY_DIR}/workload.csv
     DEPENDS ${CMAKE_SOURCE_DIR}/workload.csv
 )
+
+add_compile_options(-fsanitize=address -g -O1)
+add_link_options(-fsanitize=address)
