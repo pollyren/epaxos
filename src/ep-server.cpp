@@ -359,17 +359,21 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             grpc::ClientContext ctx;
             demo::CommitReply reply;
             grpc::Status status;
+            std::string peerName;
+            demo::CommitReq request;
             std::unique_ptr<grpc::ClientAsyncResponseReader<demo::CommitReply>>
                 rpc;
         };
 
         for (const auto& [peerName, stub] : peersNameToStub_) {
             // allocate an async call object
-            auto* call = new AsyncCall;
+            auto call = std::make_unique<AsyncCall>();
+            call->peerName = peerName;
+            call->request.CopyFrom(commitReq);
 
             // send the commit RPC
-            call->rpc = stub->AsyncCommit(&call->ctx, commitReq, &cq);
-            call->rpc->Finish(&call->reply, &call->status, call);
+            call->rpc = stub->AsyncCommit(&call->ctx, call->request, &cq);
+            call->rpc->Finish(&call->reply, &call->status, call.get());
 
             LOG("  Sent Commit RPC to " << peerName << std::endl);
         }
@@ -410,6 +414,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             demo::AcceptReply reply;
             grpc::Status status;
             std::string peerName;
+            demo::AcceptReq request;
 
             std::unique_ptr<grpc::ClientAsyncResponseReader<demo::AcceptReply>>
                 rpc;
@@ -422,8 +427,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         for (const auto& peerName : slowQuorumNames_) {
             auto call = std::make_unique<AsyncCall>();
             call->peerName = peerName;
+            call->request.CopyFrom(acceptReq);
             call->rpc = peersNameToStub_[peerName]->AsyncAccept_(
-                &call->ctx, acceptReq, &cq);
+                &call->ctx, call->request, &cq);
 
             // request notification when the operation finishes asynchronously
             call->rpc->Finish(&call->reply, &call->status, call.get());
@@ -588,6 +594,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             grpc::ClientContext ctx;
             demo::PreAcceptReply reply;
             grpc::Status status;
+            std::string peerName;
+            demo::PreAcceptReq request;
 
             std::unique_ptr<
                 grpc::ClientAsyncResponseReader<demo::PreAcceptReply>>
@@ -600,13 +608,14 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // now send async PreAccept RPCs to all fast quorum members
         for (const auto& peerName : fastQuorumNames_) {
             auto call = std::make_unique<AsyncCall>();
-
+            call->peerName = peerName;
+            call->request.CopyFrom(preAcceptReq);
             call->rpc = peersNameToStub_[peerName]->AsyncPreAccept(
-                &call->ctx, preAcceptReq, &cq);
+                &call->ctx, call->request, &cq);
 
             // request notification when the operation finishes asynchronously
             call->rpc->Finish(&call->reply, &call->status,
-                              (void*)peerName.data());
+                              call.get());
 
             // store the call in the map
             calls.emplace(peerName, std::move(call));
@@ -619,18 +628,18 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         std::map<std::string, demo::PreAcceptReply> preAcceptReplies;
 
         while (remaining > 0) {
-            void* tag;
-            bool ok = false;
+            AsyncCall* asyncCall;
+            bool ok;
 
             // wait for the next result from the completion queue
-            cq.Next(&tag, &ok);
+            cq.Next((void**)&asyncCall, &ok);
 
             if (!ok) {
                 // RPC stream broken
                 throw std::runtime_error("RPC stream error");
             }
 
-            std::string peerName = static_cast<const char*>(tag);
+            std::string peerName = asyncCall->peerName;
             auto& call = calls[peerName];
 
             if (!call->status.ok()) {
