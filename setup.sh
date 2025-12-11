@@ -1,9 +1,5 @@
 # This is the script for setting up the EPaxos and Multi-Paxos experiments
 
-# clone the EPaxos repository
-git clone https://github.com/pollyren/epaxos.git
-cd epaxos
-
 # install the dependencies
 sudo apt update
 sudo apt install -y build-essential autoconf libtool pkg-config cmake git python3-numpy gnuplot

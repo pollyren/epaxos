@@ -8,6 +8,7 @@ This repository contains an implementation of EPaxos and Multi-Paxos in C++.
 SSH onto the client-0-0 machine, clone this repository and run the setup script:
 ```
   $ git clone https://github.com/pollyren/epaxos.git
+  $ cd epaxos
   $ sh setup.sh
 ```
 
