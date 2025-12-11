@@ -492,6 +492,11 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
 
         // commit instance
         std::unique_lock<std::mutex> lock(instances_mu_);
+        if (instances[req->id().replica_id()].size() <=
+            req->id().instance_seq_id()) {
+            instances[req->id().replica_id()].resize(
+                req->id().instance_seq_id() + 1);
+        }
         instances[req->id().replica_id()][req->id().instance_seq_id()].status =
             multipaxosTypes::Status::COMMITTED;
 
