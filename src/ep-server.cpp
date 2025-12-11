@@ -533,8 +533,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         epaxosTypes::Instance newInstance;
         newInstance.cmd.action = epaxosTypes::Command::WRITE;
-        newInstance.cmd.key = req->key();
-        newInstance.cmd.value = req->value();
+        newInstance.cmd.key = std::string(req->key());
+        newInstance.cmd.value = std::string(req->value());
         newInstance.status = epaxosTypes::Status::PRE_ACCEPTED;
         newInstance.id.replica_id = thisReplica_;
         newInstance.id.replicaInstance_id = instanceCounter_;
@@ -740,8 +740,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         epaxosTypes::Command cmd;
         cmd.action =
             static_cast<epaxosTypes::Command::Action>(req->cmd().action());
-        cmd.key = req->cmd().key();
-        cmd.value = req->cmd().value();
+        cmd.key = std::string(req->cmd().key());
+        cmd.value = std::string(req->cmd().value());
 
         LOG("  Command: action=" << req->cmd().action()
                   << " key=" << req->cmd().key()
