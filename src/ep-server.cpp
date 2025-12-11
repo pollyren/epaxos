@@ -492,6 +492,20 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         commit(newInstance);
 
+        // execute the instance, or at least, build the dependency graph
+        std::string value;
+        if (newInstance.cmd.action == epaxosTypes::Command::WRITE) {
+            LOG("----------------------------\n[" << thisReplica_
+                        << "] WRITE command detected for instance: "
+                        << printInstance(newInstance)
+                        << "; Skipping execution." << std::endl);
+            value = "<successful>";
+            buildDependencyGraphForInstanceID(newInstance.id, newInstance.cmd.key, false);
+        } else {
+            value = execute(newInstance, false);
+            // we don't handle reads so the value is unused
+        }
+
         return Status::OK;
     }
 
