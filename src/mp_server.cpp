@@ -244,6 +244,13 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // Broadcast commit to all peers
         mp::CommitReq commitReq;
 
+        // prepare the command (gamma)
+        mp::Command c;
+        c.set_action(mp::Action::WRITE);
+        c.set_key(newInstance.cmd.key);
+        c.set_value(newInstance.cmd.value);
+        commitReq.mutable_cmd()->CopyFrom(c);
+
         // prepare id L.i for this instance
         mp::InstanceId id;
         id.set_replica_id(newInstance.id.replica_id);
