@@ -106,7 +106,14 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // mark the instance as accepted locally
         multipaxosTypes::Instance inst = newInstance;
         inst.status = multipaxosTypes::Status::ACCEPTED;
+
+        // resize the vector if needed
         std::unique_lock<std::mutex> lock(instances_mu_);
+        if (instances[inst.id.replica_id].size() <=
+            inst.id.replicaInstance_id) {
+            instances[inst.id.replica_id].resize(
+                inst.id.replicaInstance_id + 1);
+        }
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
         lock.unlock();
 
@@ -213,7 +220,14 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // mark the instance as committed
         multipaxosTypes::Instance inst = newInstance;
         inst.status = multipaxosTypes::Status::COMMITTED;
+
+        // resize instance vector if needed
         std::unique_lock<std::mutex> lock(instances_mu_);
+        if (instances[inst.id.replica_id].size() <=
+            inst.id.replicaInstance_id) {
+            instances[inst.id.replica_id].resize(
+                inst.id.replicaInstance_id + 1);
+        }
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
         lock.unlock();
 
