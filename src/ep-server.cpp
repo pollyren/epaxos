@@ -9,6 +9,7 @@
 #include <thread>
 #include <unordered_set>
 #include <vector>
+#include <mutex>
 
 #include "../build/generated/epaxos.grpc.pb.h"
 #include "absl/log/initialize.h"
@@ -22,6 +23,11 @@ using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 using namespace std::chrono;
+
+#define ENABLE_EP_DEP_GRAPH_LOGGING 1
+#if ENABLE_EP_DEP_GRAPH_LOGGING
+static std::mutex COUT_LOCK;
+#endif
 
 namespace {
 std::vector<std::string> split(const std::string& s, char sep) {
@@ -316,7 +322,15 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         LOG("[" << thisReplica_ << "] Dependency list count: "
                   << findInstanceById(id).attr.deps.size() << std::endl);
 
-        std::cout << "write," << id.replicaInstance_id << "," << dependencyCount << "," << depGraph.size() << "," << key << std::endl;
+        #if ENABLE_EP_DEP_GRAPH_LOGGING
+        {
+            std::lock_guard<std::mutex> guard(COUT_LOCK);
+            auto t = std::chrono::high_resolution_clock::now().time_since_epoch();
+            std::cout << "write," << t.count() << "," << id.replicaInstance_id << ","
+                    << dependencyCount << "," << depGraph.size() << "," << key << std::endl;
+        }
+        #endif
+
         return depGraph;
     }
 
