@@ -135,12 +135,12 @@
       }
   },
   "client_total": [
-	  [5, 10, 20, 40, 80],
-    [5, 10, 20, 40, 80]
+	  [320],
+    [320]
   ],
   "client_processes_per_client_node": [
-	  [1, 2, 4, 8, 16],
-    [1, 2, 4, 8, 16]
+	  [64],
+    [64]
   ],
   "client_threads_per_process": 1,
   "client_conflict_percentage": -1,
