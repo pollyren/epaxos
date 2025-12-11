@@ -178,7 +178,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     }
 
     // execute the given instance and its dependencies in order
-    std::string execute(const epaxosTypes::Instance newInstance) {
+    std::string execute(const epaxosTypes::Instance newInstance, bool fastPath) {
         // mark the instance as committed
         epaxosTypes::Instance inst = newInstance;
         inst.status = epaxosTypes::Status::COMMITTED;
@@ -193,7 +193,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                   << instances_to_string() << std::endl);
 
         Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph =
-            buildDependencyGraphForInstanceID(inst.id, inst.cmd.key);
+            buildDependencyGraphForInstanceID(inst.id, inst.cmd.key, fastPath);
 
         // topological sort the dependency graph
         auto [isDAG, sortedIds] = depGraph.topologicalSort();
@@ -268,7 +268,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     }
 
     Graph<epaxosTypes::InstanceID, InstanceIDHash>
-    buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id, const std::string& key) {
+    buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id, const std::string& key, bool fastPath) {
         // Create a graph to represent dependencies
         Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph(true);
 
@@ -339,7 +339,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             std::lock_guard<std::mutex> guard(COUT_LOCK);
             auto t = std::chrono::high_resolution_clock::now().time_since_epoch();
             std::cout << "write," << t.count() << "," << id.replicaInstance_id << ","
-                    << dependencyCount << "," << depGraph.size() << "," << key << std::endl;
+                    << dependencyCount << "," << depGraph.size() << "," << key << "," << fastPath << std::endl;
         }
         #endif
 
@@ -514,6 +514,20 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
 
         commit(newInstance);
+
+        // execute the instance, or at least, build the dependency graph
+        std::string value;
+        if (newInstance.cmd.action == epaxosTypes::Command::WRITE) {
+            LOG("----------------------------\n[" << thisReplica_
+                        << "] WRITE command detected for instance: "
+                        << printInstance(newInstance)
+                        << "; Skipping execution." << std::endl);
+            value = "<successful>";
+            buildDependencyGraphForInstanceID(newInstance.id, newInstance.cmd.key, false);
+        } else {
+            value = execute(newInstance, false);
+            // we don't handle reads so the value is unused
+        }
 
         return Status::OK;
     }
@@ -727,18 +741,17 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             // commit the instance
             commit(newInstance);
 
-            // execute the instance
-            // if write, skip execution and return success
+            // execute the instance, or at least, build the dependency graph
             std::string value;
             if (newInstance.cmd.action == epaxosTypes::Command::WRITE) {
                 LOG("----------------------------\n[" << thisReplica_
                           << "] WRITE command detected for instance: "
                           << printInstance(newInstance)
                           << "; Skipping execution." << std::endl);
-                value = "<suceessful>";
-                buildDependencyGraphForInstanceID(newInstance.id, newInstance.cmd.key);
+                value = "<successful>";
+                buildDependencyGraphForInstanceID(newInstance.id, newInstance.cmd.key, true);
             } else {
-                value = execute(newInstance);
+                value = execute(newInstance, true);
             }
             resp->set_status("write accepted");
             return Status::OK;
