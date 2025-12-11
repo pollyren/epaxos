@@ -59,14 +59,19 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                        std::vector<struct multipaxosTypes::Instance>>
         instances;
 
+    // mutex for instances
+    mutable std::mutex instances_mu_;
+
     // return the string the current state (instances) of this replica
     std::string instances_to_string() {
         std::string res;
+        std::unique_lock<std::mutex> lock(instances_mu_);
         for (const auto& [replica, instVec] : instances) {
             for (const auto& instance : instVec) {
                 res += "  - " + printInstance(instance);
             }
         }
+        lock.unlock();
         return res;
     }
 
@@ -101,7 +106,9 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // mark the instance as accepted locally
         multipaxosTypes::Instance inst = newInstance;
         inst.status = multipaxosTypes::Status::ACCEPTED;
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+        lock.unlock();
 
         //  send Accept messages to all majority quorum members
         LOG("----------------------------\n[" << thisReplica_
@@ -206,7 +213,9 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // mark the instance as committed
         multipaxosTypes::Instance inst = newInstance;
         inst.status = multipaxosTypes::Status::COMMITTED;
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
+        lock.unlock();
 
         LOG("[" << thisReplica_
                   << "] Committed instance: " << printInstance(inst)
@@ -282,7 +291,9 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
 
         // Initialize instance map for each replica (peer)
         for (const auto& [name, addr] : peer_name_to_addrs) {
+            std::unique_lock<std::mutex> lock(instances_mu_);
             instances[name] = std::vector<struct multipaxosTypes::Instance>();
+            lock.unlock();
         }
 
         peerSize = peer_name_to_addrs.size();
@@ -309,13 +320,15 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                   << "] Created new instance: " << newInstance.id.replica_id
                   << "." << newInstance.id.replicaInstance_id << std::endl);
 
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[thisReplica_].push_back(newInstance);
 
         if (instances[thisReplica_].size() != instanceCounter_) {
+            lock.unlock();
             throw std::runtime_error("RPC failed: instance counter mismatch");
         }
 
-
+        lock.unlock();
 
         // Accept Phase
         auto accStart = high_resolution_clock::now();
@@ -407,6 +420,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         newInstance.id = instanceId;
 
         // resize instance vector if needed
+        std::unique_lock<std::mutex> lock(instances_mu_);
         if (instances[instanceId.replica_id].size() <=
             instanceId.replicaInstance_id) {
             instances[instanceId.replica_id].resize(
@@ -414,6 +428,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         }
         instances[instanceId.replica_id][instanceId.replicaInstance_id] =
             newInstance;
+
+        lock.unlock();
 
         LOG("[" << thisReplica_
                   << "] Accepted instance: " << newInstance.id.replica_id
@@ -453,6 +469,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                   << " value=" << req->cmd().value() << std::endl);
 
         // commit instance
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[req->id().replica_id()][req->id().instance_seq_id()].status =
             multipaxosTypes::Status::COMMITTED;
 
@@ -460,6 +477,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                   << printInstance(instances[req->id().replica_id()]
                                             [req->id().instance_seq_id()])
                   << std::endl);
+        lock.unlock();
         LOG("[" << thisReplica_ << "] Current replica state: \n"
                   << instances_to_string() << std::endl);
 
