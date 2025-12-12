@@ -1,8 +1,10 @@
-#pragma once
-#include <map>
-#include <string>
-#include <random>
+#ifndef UTILS_HPP
+#define UTILS_HPP
+
 #include <cmath>
+#include <map>
+#include <random>
+#include <string>
 
 // logging macros
 #define EP_MP_LOGGING 0
@@ -32,15 +34,17 @@ std::string map_to_string(const Map& m, const std::string& arrow = "-->",
 }
 
 class ZipfGenerator {
-public:
+   public:
     ZipfGenerator(size_t n, double s);
 
     size_t next();
 
-private:
+   private:
     size_t n_;
     double s_;
     double H_;
     std::mt19937 rng_;
     std::uniform_real_distribution<double> dist_;
 };
+
+#endif  // UTILS_HPP

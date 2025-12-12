@@ -61,14 +61,14 @@ target_link_libraries(epaxos_proto PUBLIC protobuf::libprotobuf gRPC::grpc++)
 add_executable(server
     src/server.cpp
     src/mp_server.cpp
-    src/ep-server.cpp
+    src/ep_server.cpp
     src/utils.cpp
 )
 
 add_executable(client
     src/client.cpp
     src/mp_client.cpp
-    src/ep-client.cpp
+    src/ep_client.cpp
     src/workload.cpp
     src/utils.cpp
 )
