@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
 import csv
-from collections import Counter
+from collections import Counter, defaultdict
 import matplotlib.pyplot as plt
 
-CSV_FILE = "skew99-20client-server0.csv"  # change to your filename
+# Input CSV file
+CSV_FILE = "skew99-20client-server0.csv"  # change if needed
 
 def load_sorted_rows(path):
+    """
+    Expected CSV columns:
+        opname,real-time,instance,depGraphSize,executionPathLength,key,fastPath
 
+    Returns:
+        rows: list[dict] sorted by time
+    """
     rows = []
     with open(path, newline="") as f:
         reader = csv.reader(f)
-        header = next(reader, None)  # skip header if present
+        header = next(reader, None)  # skip header
+        if header is None:
+            raise RuntimeError("Empty CSV file")
+
         for row in reader:
             if not row or len(row) < 7:
                 continue
@@ -39,52 +49,83 @@ def load_sorted_rows(path):
                 }
             )
 
-    # sort globally by time
     rows.sort(key=lambda r: r["time"])
     return rows
 
 def main():
     rows = load_sorted_rows(CSV_FILE)
     if not rows:
-        print("No valid rows found. Check CSV_FILE and format.")
+        print("No valid rows found.")
         return
 
-    # Consider only writes when choosing the hot key
+    # Only consider writes for hotness
     write_rows = [r for r in rows if r["opname"].lower() == "write"]
     if not write_rows:
-        print("No write operations found in the CSV.")
+        print("No write operations found.")
         return
 
+    # Find 5 hottest keys
     counts = Counter(r["key"] for r in write_rows)
-    hot_key, hot_count = counts.most_common(1)[0]
-    print(f"Hot key = {hot_key}, occurrences = {hot_count}")
+    hot_keys = [k for k, _ in counts.most_common(5)]
+    print("Hot keys (top 5):", hot_keys)
 
-    # Filter to rows for the hot key and keep them sorted by time
-    hot_rows = [r for r in write_rows if r["key"] == hot_key]
-    hot_rows.sort(key=lambda r: r["time"])
+    # Global time normalization (so all keys share same time base)
+    t0 = rows[0]["time"]
 
-    if not hot_rows:
-        print("No rows for hot key (this should not happen).")
-        return
+    # Build per-key time series for writes
+    exec_by_key = defaultdict(lambda: {"time": [], "value": []})
+    dep_by_key = defaultdict(lambda: {"time": [], "value": []})
 
-    # Build time series for plotting
-    t0 = hot_rows[0]["time"]
-    times = [r["time"] - t0 for r in hot_rows]  # relative time (same units as real-time)
-    dep_sizes = [r["depGraphSize"] for r in hot_rows]
-    exec_lens = [r["executionPathLength"] for r in hot_rows]
+    for r in write_rows:
+        key = r["key"]
+        if key not in hot_keys:
+            continue
+        t_rel = r["time"] - t0
+        exec_by_key[key]["time"].append(t_rel)
+        exec_by_key[key]["value"].append(r["executionPathLength"])
+        dep_by_key[key]["time"].append(t_rel)
+        dep_by_key[key]["value"].append(r["depGraphSize"])
 
-    # Plot depGraphSize and executionPathLength vs time
+    # Figure 1: executionPathLength vs time for 5 hottest keys
     plt.figure(figsize=(10, 5))
-    plt.plot(times, dep_sizes, label="depGraphSize", marker="o", linestyle="-", alpha=0.7)
-    plt.plot(times, exec_lens, label="executionPathLength", marker="x", linestyle="-", alpha=0.7)
-
-    plt.xlabel("Time (real-time - min(real-time))")
-    plt.ylabel("Value")
-    plt.title(f"Hot key {hot_key}: depGraphSize and executionPathLength over time")
+    for key in hot_keys:
+        series = exec_by_key.get(key)
+        if not series or not series["time"]:
+            continue
+        plt.plot(
+            series["time"],
+            series["value"],
+            marker="o",
+            linestyle="-",
+            label=f"key={key}",
+        )
+    plt.xlabel("Real-time")
+    plt.ylabel("executionPathLength")
+    plt.title("executionPathLength over time for 5 hottest keys (writes only)")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("dependency-hotkey.png")
+    plt.savefig("hotkey_exec_path_length_over_time.png")
 
+    # Figure 2: depGraphSize vs time for 5 hottest keys
+    plt.figure(figsize=(10, 5))
+    for key in hot_keys:
+        series = dep_by_key.get(key)
+        if not series or not series["time"]:
+            continue
+        plt.plot(
+            series["time"],
+            series["value"],
+            marker="x",
+            linestyle="-",
+            label=f"key={key}",
+        )
+    plt.xlabel("Real-time")
+    plt.ylabel("depGraphSize")
+    plt.title("depGraphSize over time for 5 hottest keys (writes only)")
+    plt.legend()
+    plt.tight_layout()
+
+    plt.savefig("hotkey_exec_dep_over_time.png")
 
 if __name__ == "__main__":
     main()
