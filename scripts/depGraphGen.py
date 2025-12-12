@@ -1,112 +1,87 @@
 #!/usr/bin/env python3
+import os
+import glob
 import matplotlib.pyplot as plt
-from collections import defaultdict
 
-LOG_FILE = "writes.log"
+# Directory that contains server-0, server-1, ...
+LOG_ROOT = "./skew99-wan/2025-12-11-16-31-12/2025-12-11-16-31-16/out"
+LOG_GLOB = os.path.join(LOG_ROOT, "server-*", "server-*-stdout-*.log")
 
-def parse_log(path):
+def parse_all_logs(pattern: str):
     """
-    Parse lines of the form:
-      write, replicaInstance_id, dependencyCount, depGraph.size(), key, ...
-    Returns:
-      all_x:            list of request indices (0..N-1) over all writes
-      all_dep_counts:   list of dependencyCount values
-      all_dep_sizes:    list of depGraph.size() values
-      per_key:          dict key -> {"x": [...], "dep_counts": [...], "dep_sizes": [...]}
+    Parse all logs matching the glob pattern.
+
+    Expected line format:
+        operationName, time, dependencyCount, depGraph.size(), key, fastPathTaken
+
+    We keep only operationName == "write".
+    Returns a list of dicts with keys: time, depCount, depSize.
     """
-    all_x = []
-    all_dep_counts = []
-    all_dep_sizes = []
-    per_key = defaultdict(lambda: {"x": [], "dep_counts": [], "dep_sizes": []})
+    records = []
 
-    request_index = 0
-    with open(path) as f:
-        for raw_line in f:
-            line = raw_line.strip()
-            if not line.startswith("write"):
-                continue
+    for path in glob.glob(pattern):
+        with open(path) as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line:
+                    continue
 
-            parts = [p.strip() for p in line.split(",")]
-            # We only need first 5 elements: write, replica, depCount, depSize, key
-            if len(parts) < 5:
-                continue
+                parts = [p.strip() for p in line.split(",")]
+                # Need at least 6 fields
+                if len(parts) < 6:
+                    continue
 
-            try:
-                replica = int(parts[1])          # not used, but validates format
-                dep_count = int(parts[2])
-                dep_size = int(parts[3])
-                key = int(parts[4])
-            except ValueError:
-                # Skip malformed lines (e.g. header text after numbers)
-                continue
+                op = parts[0]
+                if op.lower() != "write":
+                    # Skip reads/other ops
+                    continue
 
-            all_x.append(request_index)
-            all_dep_counts.append(dep_count)
-            all_dep_sizes.append(dep_size)
+                try:
+                    time_val = int(parts[1])
+                    dep_count = int(parts[3])
+                    dep_size = int(parts[4])
+                    # key = int(parts[4])          # not used here
+                    # fast_path = int(parts[5])    # Jeffery:TBD
+                except ValueError:
+                    # Skip malformed lines
+                    continue
 
-            per_key[key]["x"].append(request_index)
-            per_key[key]["dep_counts"].append(dep_count)
-            per_key[key]["dep_sizes"].append(dep_size)
+                records.append(
+                    {
+                        "time": time_val,
+                        "depCount": dep_count,
+                        "depSize": dep_size,
+                    }
+                )
 
-            request_index += 1
-
-    return all_x, all_dep_counts, all_dep_sizes, per_key
+    return records
 
 def main():
-    all_x, all_dep_counts, all_dep_sizes, per_key = parse_log(LOG_FILE)
-
-    if not all_x:
-        print("No valid 'write' lines found in the log.")
+    records = parse_all_logs(LOG_GLOB)
+    if not records:
+        print("No records found. Check LOG_ROOT/LOG_GLOB and log format.")
         return
 
-    # -------- Graph 1: all requests --------
+    # Sort by time
+    records.sort(key=lambda r: r["time"])
+
+    # Normalize time to start at 0 (purely for readability)
+    t0 = records[0]["time"]
+    times = [r["time"] - t0 for r in records]
+    dep_counts = [r["depCount"] for r in records]
+    dep_sizes = [r["depSize"] for r in records]
+
+    print(f"Parsed {len(records)} write records from logs.")
+    print(f"time range (raw): {records[0]['time']} .. {records[-1]['time']}")
+
     plt.figure(figsize=(10, 5))
-    plt.plot(all_x, all_dep_counts, label="dependencyCount", alpha=0.7)
-    plt.plot(all_x, all_dep_sizes, label="depGraph.size()", alpha=0.7)
-    plt.xlabel("Request (log order)")
+    plt.plot(times, dep_counts, label="dependencyCount", alpha=0.7)
+    plt.plot(times, dep_sizes, label="depGraph.size()", alpha=0.7)
+    plt.xlabel("Time (normalized: time - min(time))")
     plt.ylabel("Value")
-    plt.title("All keys: dependencyCount and depGraph.size() over requests")
+    plt.title("dependencyCount and depGraph.size() over time (all servers, writes only)")
     plt.legend()
     plt.tight_layout()
-
-    # -------- Find hot key (key with most requests) --------
-    hot_key = None
-    hot_len = 0
-    for key, data in per_key.items():
-        n = len(data["x"])
-        if n > hot_len:
-            hot_key = key
-            hot_len = n
-
-    if hot_key is None:
-        print("Could not determine a hot key.")
-    else:
-        data = per_key[hot_key]
-        print(f"Hot key: {hot_key} with {hot_len} requests")
-
-        # -------- Graph 2: hot key only --------
-        plt.figure(figsize=(10, 5))
-        plt.plot(
-            data["x"],
-            data["dep_counts"],
-            label=f"dependencyCount (key={hot_key})",
-            marker="o",
-            linestyle="-",
-        )
-        plt.plot(
-            data["x"],
-            data["dep_sizes"],
-            label=f"depGraph.size() (key={hot_key})",
-            marker="x",
-            linestyle="-",
-        )
-        plt.xlabel("Request (log order)")
-        plt.ylabel("Value")
-        plt.title(f"Hot key {hot_key}: dependencyCount and depGraph.size() over requests")
-        plt.legend()
-        plt.tight_layout()
-
-    # Show both figures
     plt.show()
 
 if __name__ == "__main__":
