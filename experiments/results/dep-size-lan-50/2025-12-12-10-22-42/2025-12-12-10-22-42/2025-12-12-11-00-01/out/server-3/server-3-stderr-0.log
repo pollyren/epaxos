@@ -1,0 +1,269 @@
+Initializing EPaxos Server...
+=================================================================
+==1149787==ERROR: AddressSanitizer: requested allocation size 0x8787878787878800 (0x8787878787879800 after adjustments for alignment, red zones etc.) exceeds maximum supported size of 0x10000000000 (thread T589 (grpcpp_sync_ser))
+    #0 0x7fb973fbcffe in __interceptor_realloc (/lib/x86_64-linux-gnu/libasan.so.5+0x10dffe)
+    #1 0x555dbcae31e4 in gpr_realloc (/users/rghilea/epaxos/build/server+0x7de1e4)
+
+==1149787==HINT: if you don't care about these errors you may set allocator_may_return_null=1
+SUMMARY: AddressSanitizer: allocation-size-too-big (/lib/x86_64-linux-gnu/libasan.so.5+0x10dffe) in __interceptor_realloc
+Thread T589 (grpcpp_sync_ser) created by T588 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T588 (grpcpp_sync_ser) created by T587 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T587 (grpcpp_sync_ser) created by T586 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T586 (grpcpp_sync_ser) created by T585 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T585 (grpcpp_sync_ser) created by T584 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T584 (grpcpp_sync_ser) created by T565 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T565 (grpcpp_sync_ser) created by T564 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T564 (grpcpp_sync_ser) created by T477 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T477 (grpcpp_sync_ser) created by T476 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T476 (grpcpp_sync_ser) created by T475 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T475 (grpcpp_sync_ser) created by T474 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T474 (grpcpp_sync_ser) created by T473 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T473 (grpcpp_sync_ser) created by T472 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T472 (grpcpp_sync_ser) created by T471 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T471 (grpcpp_sync_ser) created by T470 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T470 (grpcpp_sync_ser) created by T469 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T469 (grpcpp_sync_ser) created by T435 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T435 (grpcpp_sync_ser) created by T434 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T434 (grpcpp_sync_ser) created by T433 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T433 (grpcpp_sync_ser) created by T378 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T378 (grpcpp_sync_ser) created by T377 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T377 (grpcpp_sync_ser) created by T376 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T376 (grpcpp_sync_ser) created by T375 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T375 (grpcpp_sync_ser) created by T374 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T374 (grpcpp_sync_ser) created by T324 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T324 (grpcpp_sync_ser) created by T322 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T322 (grpcpp_sync_ser) created by T232 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T232 (grpcpp_sync_ser) created by T121 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T121 (grpcpp_sync_ser) created by T120 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T120 (grpcpp_sync_ser) created by T119 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T119 (grpcpp_sync_ser) created by T95 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T95 (grpcpp_sync_ser) created by T93 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T93 (grpcpp_sync_ser) created by T90 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T90 (grpcpp_sync_ser) created by T87 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T87 (grpcpp_sync_ser) created by T86 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T86 (grpcpp_sync_ser) created by T68 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T68 (grpcpp_sync_ser) created by T67 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T67 (grpcpp_sync_ser) created by T66 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T66 (grpcpp_sync_ser) created by T65 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T65 (grpcpp_sync_ser) created by T64 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T64 (grpcpp_sync_ser) created by T63 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T63 (grpcpp_sync_ser) created by T53 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T53 (grpcpp_sync_ser) created by T50 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T50 (grpcpp_sync_ser) created by T49 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T49 (grpcpp_sync_ser) created by T48 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T48 (grpcpp_sync_ser) created by T44 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T44 (grpcpp_sync_ser) created by T43 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T43 (grpcpp_sync_ser) created by T40 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T40 (grpcpp_sync_ser) created by T39 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T39 (grpcpp_sync_ser) created by T38 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T38 (grpcpp_sync_ser) created by T37 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T37 (grpcpp_sync_ser) created by T36 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T36 (grpcpp_sync_ser) created by T35 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T35 (grpcpp_sync_ser) created by T34 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T34 (grpcpp_sync_ser) created by T33 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T33 (grpcpp_sync_ser) created by T32 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T32 (grpcpp_sync_ser) created by T31 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T31 (grpcpp_sync_ser) created by T29 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T29 (grpcpp_sync_ser) created by T27 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T27 (grpcpp_sync_ser) created by T26 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T26 (grpcpp_sync_ser) created by T24 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T24 (grpcpp_sync_ser) created by T23 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T23 (grpcpp_sync_ser) created by T22 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T22 (grpcpp_sync_ser) created by T21 (grpcpp_sync_ser) here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+Thread T21 (grpcpp_sync_ser) created by T0 here:
+    #0 0x7fb973ee9805 in pthread_create (/lib/x86_64-linux-gnu/libasan.so.5+0x3a805)
+    #1 0x555dbcae2e91 in grpc_core::Thread::Thread(char const*, void (*)(void*), void*, bool*, grpc_core::Thread::Options const&) (/users/rghilea/epaxos/build/server+0x7dde91)
+
+==1149787==ABORTING
