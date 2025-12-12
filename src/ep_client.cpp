@@ -15,15 +15,15 @@ using namespace std::chrono;
 #include "absl/log/initialize.h"
 #include "utils.hpp"
 
-static demo::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
+static epaxos::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
                                      const std::string& msg, int id,
                                      bool fanout) {
-    auto stub = demo::Echo::NewStub(ch);
-    demo::PingReq req;
+    auto stub = epaxos::Echo::NewStub(ch);
+    epaxos::PingReq req;
     req.set_msg(msg);
     req.set_id(id);
     req.set_fanout(fanout);
-    demo::PingResp resp;
+    epaxos::PingResp resp;
     ClientContext ctx;
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
@@ -35,14 +35,14 @@ static demo::PingResp call_broadcast(const std::shared_ptr<Channel>& ch,
     return resp;
 }
 
-static demo::WriteResp call_write(const std::shared_ptr<Channel>& ch,
+static epaxos::WriteResp call_write(const std::shared_ptr<Channel>& ch,
                                   const std::string& key,
                                   const std::string& value) {
-    auto stub = demo::EPaxosReplica::NewStub(ch);
-    demo::WriteReq req;
+    auto stub = epaxos::EPaxosReplica::NewStub(ch);
+    epaxos::WriteReq req;
     req.set_key(key);
     req.set_value(value);
-    demo::WriteResp resp;
+    epaxos::WriteResp resp;
     ClientContext ctx;
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
@@ -55,10 +55,10 @@ static demo::WriteResp call_write(const std::shared_ptr<Channel>& ch,
     return resp;
 }
 
-static demo::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
-    auto stub = demo::EPaxosReplica::NewStub(ch);
-    demo::GetStateReq req;
-    demo::GetStateResp resp;
+static epaxos::GetStateResp call_get_state(const std::shared_ptr<Channel>& ch) {
+    auto stub = epaxos::EPaxosReplica::NewStub(ch);
+    epaxos::GetStateReq req;
+    epaxos::GetStateResp resp;
     ClientContext ctx;
     ctx.set_deadline(std::chrono::system_clock::now() +
                      std::chrono::seconds(3));
