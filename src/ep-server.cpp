@@ -157,11 +157,12 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         } else {
             epaxosTypes::Instance inst =
                 instances[id.replica_id][id.replicaInstance_id];
-            lock.unlock();
-
+            
             // make sure the information of Q.i matches the instance found
             assert(inst.id.replica_id == id.replica_id &&
                    inst.id.replicaInstance_id == id.replicaInstance_id);
+
+            lock.unlock();
 
             return inst;
         }
@@ -583,12 +584,6 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         newInstance.cmd.value = std::string(req->value());
         newInstance.status = epaxosTypes::Status::PRE_ACCEPTED;
         newInstance.id.replica_id = thisReplica_;
-        newInstance.id.replicaInstance_id = instanceCounter_;
-        instanceCounter_++;
-
-        LOG("[" << thisReplica_
-                  << "] Created new instance: " << newInstance.id.replica_id
-                  << "." << newInstance.id.replicaInstance_id << std::endl);
 
         // add dependencies/Maxsequence
         auto deps = findDependencies(newInstance.cmd);
@@ -596,6 +591,13 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         newInstance.attr.seq = findMaxSeq(deps) + 1;
 
         std::unique_lock<std::mutex> lock(instances_mu_);
+        newInstance.id.replicaInstance_id = instanceCounter_;
+        instanceCounter_++;
+
+        LOG("[" << thisReplica_
+                  << "] Created new instance: " << newInstance.id.replica_id
+                  << "." << newInstance.id.replicaInstance_id << std::endl);
+
         instances[thisReplica_].push_back(newInstance);
 
         if (instances[thisReplica_].size() != instanceCounter_) {
@@ -977,7 +979,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                              const demo::GetStateReq* req,
                              demo::GetStateResp* resp) override {
         std::string result = "";
+        std::unique_lock<std::mutex> lock(instances_mu_);
         result += "Instance count: " + std::to_string(instanceCounter_) + "\n";
+        lock.unlock();
         resp->set_state(result);
         return Status::OK;
     }

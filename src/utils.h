@@ -5,7 +5,7 @@
 #include <cmath>
 
 // logging macros
-#define EP_MP_LOGGING 0
+#define EP_MP_LOGGING 1
 #if EP_MP_LOGGING
 #define LOG(msg) (std::cerr << msg)
 #else

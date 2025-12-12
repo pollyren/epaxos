@@ -44,7 +44,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
    private:
     std::string thisReplica_;  // my name
     bool is_leader_;           // does this replica think it is the leader
-    int instanceCounter_ = 0;  // instance counter
+    std::atomic<int> instanceCounter_{0};  // instance counter
 
     // all peer addrs and stubs
     std::map<std::string, std::unique_ptr<mp::MultiPaxosReplica::Stub>>
@@ -244,6 +244,13 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // Broadcast commit to all peers
         mp::CommitReq commitReq;
 
+        // prepare the command (gamma)
+        mp::Command c;
+        c.set_action(mp::Action::WRITE);
+        c.set_key(newInstance.cmd.key);
+        c.set_value(newInstance.cmd.value);
+        commitReq.mutable_cmd()->CopyFrom(c);
+
         // prepare id L.i for this instance
         mp::InstanceId id;
         id.set_replica_id(newInstance.id.replica_id);
@@ -335,22 +342,22 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         newInstance.cmd.value = std::string(req->value());
         newInstance.status = multipaxosTypes::Status::PREPARED;
         newInstance.id.replica_id = thisReplica_;
-        newInstance.id.replicaInstance_id = instanceCounter_;
-        instanceCounter_++;
+        int myInstId = instanceCounter_.fetch_add(1);
+        newInstance.id.replicaInstance_id = myInstId;
+
+        {
+            std::unique_lock<std::mutex> lock(instances_mu_);
+            instances[thisReplica_].push_back(newInstance);
+
+            // Optional sanity check
+            if (instances[thisReplica_].size() != static_cast<size_t>(myInstId + 1)) {
+                throw std::runtime_error("RPC failed: instance counter mismatch");
+            }
+        }
 
         LOG("[" << thisReplica_
                   << "] Created new instance: " << newInstance.id.replica_id
                   << "." << newInstance.id.replicaInstance_id << std::endl);
-
-        std::unique_lock<std::mutex> lock(instances_mu_);
-        instances[thisReplica_].push_back(newInstance);
-
-        if (instances[thisReplica_].size() != instanceCounter_) {
-            lock.unlock();
-            throw std::runtime_error("RPC failed: instance counter mismatch");
-        }
-
-        lock.unlock();
 
         // Accept Phase
         auto accStart = high_resolution_clock::now();
@@ -492,6 +499,11 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
 
         // commit instance
         std::unique_lock<std::mutex> lock(instances_mu_);
+        if (instances[req->id().replica_id()].size() <=
+            req->id().instance_seq_id()) {
+            instances[req->id().replica_id()].resize(
+                req->id().instance_seq_id() + 1);
+        }
         instances[req->id().replica_id()][req->id().instance_seq_id()].status =
             multipaxosTypes::Status::COMMITTED;
 
@@ -509,7 +521,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
     Status ClientGetStateReq(ServerContext* /*ctx*/, const mp::GetStateReq* req,
                              mp::GetStateResp* resp) override {
         std::string result = "";
-        result += "Instance count: " + std::to_string(instanceCounter_) + "\n";
+        int count = instanceCounter_.load();
+        result += "Instance count: " + std::to_string(count) + "\n";
         resp->set_state(result);
         return Status::OK;
     }
