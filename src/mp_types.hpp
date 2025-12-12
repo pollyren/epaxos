@@ -98,9 +98,7 @@ struct Instance {
 
     // copy constructor
     Instance(const Instance& other)
-        : cmd(other.cmd),
-          status(other.status),
-          id(other.id) {}
+        : cmd(other.cmd), status(other.status), id(other.id) {}
 
     // move constructor
     Instance(Instance&& other) noexcept

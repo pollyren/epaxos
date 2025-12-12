@@ -1,5 +1,5 @@
-// Graph.hpp
-#pragma once
+#ifndef GRAPH_HPP
+#define GRAPH_HPP
 
 #include <algorithm>
 #include <functional>
@@ -102,3 +102,5 @@ class Graph {
     bool directed_;
     std::unordered_map<Vertex, std::vector<Vertex>, Hash, Eq> adj_;
 };
+
+#endif  // GRAPH_HPP

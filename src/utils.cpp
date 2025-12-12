@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "utils.hpp"
 
 #include <algorithm>
 #include <map>
@@ -50,11 +50,9 @@ std::map<std::string, std::string> parse_map_mixed_simple(
 }
 
 ZipfGenerator::ZipfGenerator(size_t n, double s)
-    : n_(n), s_(s), dist_(0.0, 1.0), rng_(std::random_device{}())
-{
+    : n_(n), s_(s), dist_(0.0, 1.0), rng_(std::random_device{}()) {
     H_ = 0.0;
-    for (size_t i = 1; i <= n_; i++)
-        H_ += 1.0 / std::pow(i, s_);
+    for (size_t i = 1; i <= n_; i++) H_ += 1.0 / std::pow(i, s_);
 }
 
 size_t ZipfGenerator::next() {

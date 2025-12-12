@@ -7,8 +7,8 @@
 
 #include "absl/log/initialize.h"
 #include "multipaxos.grpc.pb.h"
+#include "utils.hpp"
 #include "workload.hpp"
-#include "utils.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -98,15 +98,14 @@ int run_mp_client(int argc, char** argv) {
     }
 
     auto expStart = high_resolution_clock::now();
-    auto expEnd   = expStart + seconds(expLength);
+    auto expEnd = expStart + seconds(expLength);
     ZipfGenerator zipf = ZipfGenerator(numKeys, zipfS);
     size_t i = 0;
     std::string key;
     std::string val;
 
     // create channel to target server
-    auto ch =
-        grpc::CreateChannel(server, grpc::InsecureChannelCredentials());
+    auto ch = grpc::CreateChannel(server, grpc::InsecureChannelCredentials());
 
     while (high_resolution_clock::now() < expEnd) {
         // get key using Zipfian Generator
@@ -117,9 +116,8 @@ int run_mp_client(int argc, char** argv) {
         auto start = high_resolution_clock::now();
 
         std::string opType = "write";
-        LOG("Writing key='" << key << "' value='"
-                    << val << "' to server='" << server
-                    << "'\n");
+        LOG("Writing key='" << key << "' value='" << val << "' to server='"
+                            << server << "'\n");
 
         try {
             auto resp = call_write(ch, key, val);
@@ -133,8 +131,7 @@ int run_mp_client(int argc, char** argv) {
 
         // calculate request latency
         int64_t latency = duration_cast<nanoseconds>(end - start).count();
-        std::cout << opType << "," << latency << "," << key << "," << i
-                  << "\n";
+        std::cout << opType << "," << latency << "," << key << "," << i << "\n";
         i++;
     }
 

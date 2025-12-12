@@ -14,7 +14,7 @@
 #include "absl/log/initialize.h"
 #include "mp_types.hpp"
 #include "multipaxos.pb.h"
-#include "utils.h"
+#include "utils.hpp"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -111,15 +111,15 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         std::unique_lock<std::mutex> lock(instances_mu_);
         if (instances[inst.id.replica_id].size() <=
             inst.id.replicaInstance_id) {
-            instances[inst.id.replica_id].resize(
-                inst.id.replicaInstance_id + 1);
+            instances[inst.id.replica_id].resize(inst.id.replicaInstance_id +
+                                                 1);
         }
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
         lock.unlock();
 
         //  send Accept messages to all majority quorum members
-        LOG("----------------------------\n[" << thisReplica_
-                  << "] Sending Accept RPCs: " << std::endl);
+        LOG("----------------------------\n["
+            << thisReplica_ << "] Sending Accept RPCs: " << std::endl);
 
         grpc::CompletionQueue cq;
         struct AsyncCall {
@@ -141,19 +141,17 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             call->peerName = peerName;
             call->request.CopyFrom(acceptReq);
 
-            call->rpc = peersNameToStub_[peerName]->AsyncAccept(&call->ctx,
-                                                                call->request, &cq);
+            call->rpc = peersNameToStub_[peerName]->AsyncAccept(
+                &call->ctx, call->request, &cq);
 
             // request notification when the operation finishes asynchronously
             call->rpc->Finish(&call->reply, &call->status, call.get());
 
-
             // store the call in the map
             calls.emplace(peerName, std::move(call));
 
-            LOG("[" << thisReplica_
-                      << "] Sending AcceptReq message to: " << peerName
-                      << std::endl);
+            LOG("[" << thisReplica_ << "] Sending AcceptReq message to: "
+                    << peerName << std::endl);
         }
 
         // collect all accept replies
@@ -184,13 +182,14 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             remaining--;
         }
 
-        LOG("----------------------------\n [" << thisReplica_
-                  << "] Accept Reply: " << std::endl);
+        LOG("----------------------------\n ["
+            << thisReplica_ << "] Accept Reply: " << std::endl);
 
         int agreeCount = 0;
         for (const auto& [name, reply] : acceptReplies) {
             LOG(" From: " << name << "  Reply Details: "
-                      << " ok=" << (reply.ok() ? "true" : "false") << std::endl);
+                          << " ok=" << (reply.ok() ? "true" : "false")
+                          << std::endl);
 
             if (reply.ok()) {
                 agreeCount++;
@@ -205,13 +204,12 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
 
         // check that we got enough answers
         if (agreeCount >= (peerSize / 2)) {
-            LOG("[" << thisReplica_
-                      << "] Accept phase succeeded for instance: "
-                      << newInstance.id.replica_id << "."
-                      << newInstance.id.replicaInstance_id
-                      << " because agreeCount=" << agreeCount
-                      << " >= " << "peerSize/2=" << peerSize / 2
-                      << "; Go to Commit phase" << std::endl);
+            LOG("[" << thisReplica_ << "] Accept phase succeeded for instance: "
+                    << newInstance.id.replica_id << "."
+                    << newInstance.id.replicaInstance_id
+                    << " because agreeCount=" << agreeCount
+                    << " >= " << "peerSize/2=" << peerSize / 2
+                    << "; Go to Commit phase" << std::endl);
 
             return true;
         } else {
@@ -229,17 +227,16 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         std::unique_lock<std::mutex> lock(instances_mu_);
         if (instances[inst.id.replica_id].size() <=
             inst.id.replicaInstance_id) {
-            instances[inst.id.replica_id].resize(
-                inst.id.replicaInstance_id + 1);
+            instances[inst.id.replica_id].resize(inst.id.replicaInstance_id +
+                                                 1);
         }
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
         lock.unlock();
 
-        LOG("[" << thisReplica_
-                  << "] Committed instance: " << printInstance(inst)
-                  << std::endl);
+        LOG("[" << thisReplica_ << "] Committed instance: "
+                << printInstance(inst) << std::endl);
         LOG("[" << thisReplica_ << "] Current replica state: \n"
-                  << instances_to_string() << std::endl);
+                << instances_to_string() << std::endl);
 
         // Broadcast commit to all peers
         mp::CommitReq commitReq;
@@ -259,8 +256,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         commitReq.set_sender(thisReplica_);
 
         // send Commit RPCs asynchronously to all peers
-        LOG("----------------------------\n[" << thisReplica_
-                  << "] Sending Commit RPCs: " << std::endl);
+        LOG("----------------------------\n["
+            << thisReplica_ << "] Sending Commit RPCs: " << std::endl);
 
         grpc::CompletionQueue cq;
         struct AsyncCall {
@@ -284,13 +281,12 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             call->request.CopyFrom(commitReq);
 
             // send the commit RPC
-            call->rpc = peersNameToStub_[peerName]->AsyncCommit(&call->ctx,
-                                                                call->request, &cq);
+            call->rpc = peersNameToStub_[peerName]->AsyncCommit(
+                &call->ctx, call->request, &cq);
             call->rpc->Finish(&call->reply, &call->status, call.get());
 
-            LOG("[" << thisReplica_
-                      << "] Sending CommitReq message to: " << peerName
-                      << std::endl);
+            LOG("[" << thisReplica_ << "] Sending CommitReq message to: "
+                    << peerName << std::endl);
         }
 
         // No need to wait for commit replies
@@ -331,9 +327,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
     Status ClientWriteReq(ServerContext* /*ctx*/, const mp::WriteReq* req,
                           mp::WriteResp* resp) override {
         auto s = high_resolution_clock::now();
-        LOG("\n[" << thisReplica_
-                  << "] Received ClientWriteReq: key=" << req->key()
-                  << " value=" << req->value() << std::endl);
+        LOG("\n[" << thisReplica_ << "] Received ClientWriteReq: key="
+                  << req->key() << " value=" << req->value() << std::endl);
 
         // Create new instance
         multipaxosTypes::Instance newInstance;
@@ -350,14 +345,16 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             instances[thisReplica_].push_back(newInstance);
 
             // Optional sanity check
-            if (instances[thisReplica_].size() != static_cast<size_t>(myInstId + 1)) {
-                throw std::runtime_error("RPC failed: instance counter mismatch");
+            if (instances[thisReplica_].size() !=
+                static_cast<size_t>(myInstId + 1)) {
+                throw std::runtime_error(
+                    "RPC failed: instance counter mismatch");
             }
         }
 
         LOG("[" << thisReplica_
-                  << "] Created new instance: " << newInstance.id.replica_id
-                  << "." << newInstance.id.replicaInstance_id << std::endl);
+                << "] Created new instance: " << newInstance.id.replica_id
+                << "." << newInstance.id.replicaInstance_id << std::endl);
 
         // Accept Phase
         auto accStart = high_resolution_clock::now();
@@ -369,12 +366,9 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         auto accEnd = high_resolution_clock::now();
         // calculate request latency
         int64_t latency = duration_cast<nanoseconds>(accEnd - accStart).count();
-        LOG("[" << thisReplica_
-                    << "] Accept phase took " << latency
-                    << " nanoseconds for instance: "
-                    << newInstance.id.replica_id << "."
-                    << newInstance.id.replicaInstance_id
-                    << std::endl);
+        LOG("[" << thisReplica_ << "] Accept phase took " << latency
+                << " nanoseconds for instance: " << newInstance.id.replica_id
+                << "." << newInstance.id.replicaInstance_id << std::endl);
 
         // Commit Phase
         auto commStart = high_resolution_clock::now();
@@ -385,38 +379,29 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         // calculate request latency
         auto commEnd = high_resolution_clock::now();
         latency = duration_cast<nanoseconds>(commEnd - commStart).count();
-        LOG("[" << thisReplica_
-                    << "] Commit phase took " << latency
-                    << " nanoseconds for instance: "
-                    << newInstance.id.replica_id << "."
-                    << newInstance.id.replicaInstance_id
-                    << std::endl);
+        LOG("[" << thisReplica_ << "] Commit phase took " << latency
+                << " nanoseconds for instance: " << newInstance.id.replica_id
+                << "." << newInstance.id.replicaInstance_id << std::endl);
 
         // Reply to client
-        LOG("[" << thisReplica_
-                  << "] Reply to client ClientWriteReq: key=" << req->key()
-                  << " value=" << req->value() << " write accepted."
-                  << std::endl);
+        LOG("[" << thisReplica_ << "] Reply to client ClientWriteReq: key="
+                << req->key() << " value=" << req->value() << " write accepted."
+                << std::endl);
         resp->set_status("write accepted");
         auto e = high_resolution_clock::now();
-        latency = duration_cast<nanoseconds>(e-s).count();
-        LOG("[" << thisReplica_
-                    << "] Entire request took " << latency
-                    << " nanoseconds for instance: "
-                    << newInstance.id.replica_id << "."
-                    << newInstance.id.replicaInstance_id
-                    << std::endl);
+        latency = duration_cast<nanoseconds>(e - s).count();
+        LOG("[" << thisReplica_ << "] Entire request took " << latency
+                << " nanoseconds for instance: " << newInstance.id.replica_id
+                << "." << newInstance.id.replicaInstance_id << std::endl);
         return Status::OK;
     }
 
     Status Accept(ServerContext* /*ctx*/, const mp::AcceptReq* req,
                   mp::AcceptReply* resp) override {
         LOG("----------------------------\n"
-                  << "[" << thisReplica_ << "] Received AcceptReq for instance "
-                  << req->id().replica_id() << "."
-                  << req->id().instance_seq_id()
-                  << "from sender "
-                  << req->sender() << std::endl);
+            << "[" << thisReplica_ << "] Received AcceptReq for instance "
+            << req->id().replica_id() << "." << req->id().instance_seq_id()
+            << "from sender " << req->sender() << std::endl);
 
         if (req->sender().empty()) {
             throw std::runtime_error("AcceptReq: replica_id is empty");
@@ -434,8 +419,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         cmd.value = std::string(req->cmd().value());
 
         LOG("  Command: action=" << req->cmd().action()
-                  << " key=" << req->cmd().key()
-                  << " value=" << req->cmd().value() << std::endl);
+                                 << " key=" << req->cmd().key() << " value="
+                                 << req->cmd().value() << std::endl);
 
         // construct instance ID from request
         multipaxosTypes::InstanceID instanceId;
@@ -461,8 +446,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         lock.unlock();
 
         LOG("[" << thisReplica_
-                  << "] Accepted instance: " << newInstance.id.replica_id
-                  << "." << newInstance.id.replicaInstance_id << std::endl);
+                << "] Accepted instance: " << newInstance.id.replica_id << "."
+                << newInstance.id.replicaInstance_id << std::endl);
 
         // prepare the reply message
         resp->set_ok(true);
@@ -474,9 +459,9 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
     Status Commit(ServerContext* /*ctx*/, const mp::CommitReq* req,
                   mp::CommitReply* resp) override {
         LOG("----------------------------\n"
-                  << "[" << thisReplica_ << "] Received CommitReq for instance "
-                  << req->id().replica_id() << "."
-                  << req->id().instance_seq_id() << std::endl);
+            << "[" << thisReplica_ << "] Received CommitReq for instance "
+            << req->id().replica_id() << "." << req->id().instance_seq_id()
+            << std::endl);
 
         if (req->sender().empty()) {
             throw std::runtime_error("CommitReq: replica_id is empty");
@@ -494,8 +479,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         cmd.value = req->cmd().value();
 
         LOG("  Command: action=" << req->cmd().action()
-                  << " key=" << req->cmd().key()
-                  << " value=" << req->cmd().value() << std::endl);
+                                 << " key=" << req->cmd().key() << " value="
+                                 << req->cmd().value() << std::endl);
 
         // commit instance
         std::unique_lock<std::mutex> lock(instances_mu_);
@@ -508,12 +493,12 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
             multipaxosTypes::Status::COMMITTED;
 
         LOG("[" << thisReplica_ << "] Committed instance: "
-                  << printInstance(instances[req->id().replica_id()]
-                                            [req->id().instance_seq_id()])
-                  << std::endl);
+                << printInstance(instances[req->id().replica_id()]
+                                          [req->id().instance_seq_id()])
+                << std::endl);
         lock.unlock();
         LOG("[" << thisReplica_ << "] Current replica state: \n"
-                  << instances_to_string() << std::endl);
+                << instances_to_string() << std::endl);
 
         return Status::OK;
     }
@@ -653,8 +638,7 @@ int run_mp_server(int argc, char** argv) {
 
         std::unique_ptr<Server> server(builder.BuildAndStart());
         LOG("Server listening on " << addr << " peers=" << peers_csv);
-        LOG("[" << name << "] listening on " << addr
-                  << " peers=" << peers_csv);
+        LOG("[" << name << "] listening on " << addr << " peers=" << peers_csv);
         server->Wait();
         return 0;
     } else if (application == "mp") {
@@ -678,9 +662,8 @@ int run_mp_server(int argc, char** argv) {
         int f = peer_addrs.size() / 2;
         size_t majority_quorum_size = f + 1;
 
-        LOG("[" << name << "] Determined f=" << f
-                  << ", majority_quorum_size=" << majority_quorum_size
-                  << std::endl);
+        LOG("[" << name << "] Determined f=" << f << ", majority_quorum_size="
+                << majority_quorum_size << std::endl);
 
         std::vector<std::string> peer_names;
         for (const auto& addr : peer_addrs) {
@@ -698,12 +681,12 @@ int run_mp_server(int argc, char** argv) {
         }
         LOG("\n");
 
-        
-
-        std::vector<std::string> majority_quorum_names(peer_names.begin(), peer_names.begin() + majority_quorum_size - 1);
+        std::vector<std::string> majority_quorum_names(
+            peer_names.begin(), peer_names.begin() + majority_quorum_size - 1);
 
         MultiPaxosReplica service(
-            name, is_leader, peer_name_to_addr, majority_quorum_names);  // create a server structure
+            name, is_leader, peer_name_to_addr,
+            majority_quorum_names);  // create a server structure
 
         grpc::ServerBuilder builder;
         const std::string addr = std::string("0.0.0.0:") + port;
@@ -720,8 +703,8 @@ int run_mp_server(int argc, char** argv) {
         }
 
         LOG("[" << name << "] listening on MultiPaxos replica " << addr
-                  << " peers=" << map_to_string(peer_name_to_addr)
-                  << " is_leader=" << std::boolalpha << is_leader << std::endl);
+                << " peers=" << map_to_string(peer_name_to_addr)
+                << " is_leader=" << std::boolalpha << is_leader << std::endl);
         server->Wait();
         return 0;
     } else {

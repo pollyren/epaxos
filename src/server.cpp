@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "utils.h"
+#include "utils.hpp"
 
 int run_mp_server(int argc, char** argv);
 int run_ep_server(int argc, char** argv);

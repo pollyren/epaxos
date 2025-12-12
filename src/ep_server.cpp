@@ -9,14 +9,13 @@
 #include <thread>
 #include <unordered_set>
 #include <vector>
-#include <mutex>
 
 #include "../build/generated/epaxos.grpc.pb.h"
 #include "absl/log/initialize.h"
 #include "epaxos.pb.h"
 #include "graph.hpp"
 #include "types.hpp"
-#include "utils.h"
+#include "utils.hpp"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -157,7 +156,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         } else {
             epaxosTypes::Instance inst =
                 instances[id.replica_id][id.replicaInstance_id];
-            
+
             // make sure the information of Q.i matches the instance found
             assert(inst.id.replica_id == id.replica_id &&
                    inst.id.replicaInstance_id == id.replicaInstance_id);
@@ -179,7 +178,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     }
 
     // execute the given instance and its dependencies in order
-    std::string execute(const epaxosTypes::Instance newInstance, bool fastPath) {
+    std::string execute(const epaxosTypes::Instance newInstance,
+                        bool fastPath) {
         // mark the instance as committed
         epaxosTypes::Instance inst = newInstance;
         inst.status = epaxosTypes::Status::COMMITTED;
@@ -187,11 +187,10 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
         lock.unlock();
 
-        LOG("[" << thisReplica_
-                  << "] Committed instance: " << printInstance(inst)
-                  << std::endl);
+        LOG("[" << thisReplica_ << "] Committed instance: "
+                << printInstance(inst) << std::endl);
         LOG("[" << thisReplica_ << "] Current replica state: \n"
-                  << instances_to_string() << std::endl);
+                << instances_to_string() << std::endl);
 
         Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph =
             buildDependencyGraphForInstanceID(inst.id, inst.cmd.key, fastPath);
@@ -200,8 +199,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         auto [isDAG, sortedIds] = depGraph.topologicalSort();
 
         LOG("[" << thisReplica_ << "] Execution order for instance "
-                  << inst.id.replica_id << "." << inst.id.replicaInstance_id
-                  << ": ");
+                << inst.id.replica_id << "." << inst.id.replicaInstance_id
+                << ": ");
 
         for (const auto& id : sortedIds) {
             LOG(id.replica_id << "." << id.replicaInstance_id << " ");
@@ -228,9 +227,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                 epaxosTypes::Instance depInst = findInstanceById(sortedIds[i]);
                 while (depInst.status != epaxosTypes::Status::COMMITTED) {
                     LOG("[" << thisReplica_
-                              << "] Waiting for dependency instance: "
-                              << printInstance(depInst) << " to be committed."
-                              << std::endl);
+                            << "] Waiting for dependency instance: "
+                            << printInstance(depInst) << " to be committed."
+                            << std::endl);
                     // spin wait
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     depInst = findInstanceById(sortedIds[i]);
@@ -245,23 +244,21 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // this is for testing purpose only
         for (int i = sortedIds.size() - 1; i >= 0; --i) {
             epaxosTypes::Instance execInst = findInstanceById(sortedIds[i]);
-            LOG("\n[" << thisReplica_
-                      << "] Executing instance: " << printInstance(execInst)
-                      << std::endl);
+            LOG("\n[" << thisReplica_ << "] Executing instance: "
+                      << printInstance(execInst) << std::endl);
             // execute the command
             if (execInst.cmd.action == epaxosTypes::Command::WRITE) {
                 LOG("[" << thisReplica_
-                          << "] WRITE executed: key=" << execInst.cmd.key
-                          << " value=" << execInst.cmd.value << std::endl);
+                        << "] WRITE executed: key=" << execInst.cmd.key
+                        << " value=" << execInst.cmd.value << std::endl);
                 result = execInst.cmd.value;
             } else if (execInst.cmd.action == epaxosTypes::Command::READ) {
                 LOG("[" << thisReplica_
-                          << "] READ executed: key=" << execInst.cmd.key
-                          << " value=<not implemented>" << std::endl);
+                        << "] READ executed: key=" << execInst.cmd.key
+                        << " value=<not implemented>" << std::endl);
             } else {
-                LOG("[" << thisReplica_
-                          << "] Unknown command action: " << execInst.cmd.action
-                          << std::endl);
+                LOG("[" << thisReplica_ << "] Unknown command action: "
+                        << execInst.cmd.action << std::endl);
             }
         }
 
@@ -269,7 +266,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     }
 
     Graph<epaxosTypes::InstanceID, InstanceIDHash>
-    buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id, const std::string& key, bool fastPath) {
+    buildDependencyGraphForInstanceID(const epaxosTypes::InstanceID id,
+                                      const std::string& key, bool fastPath) {
         // Create a graph to represent dependencies
         Graph<epaxosTypes::InstanceID, InstanceIDHash> depGraph(true);
 
@@ -305,12 +303,11 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // print the detail of the dependency graph
 
         LOG("[" << thisReplica_ << "] Dependency graph for instance "
-                  << id.replica_id << "." << id.replicaInstance_id << " built."
-                  << std::endl);
+                << id.replica_id << "." << id.replicaInstance_id << " built."
+                << std::endl);
 
         // Print the graph
-        LOG("[" << thisReplica_
-                  << "] Dependency Graph Edges:" << std::endl);
+        LOG("[" << thisReplica_ << "] Dependency Graph Edges:" << std::endl);
         int dependencyCount = 0;
         for (const auto& vertexIdStr : visited) {
             // parse vertexIdStr to InstanceID
@@ -323,26 +320,30 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             for (const auto& depId : currentInst.attr.deps) {
                 dependencyCount++;
                 LOG("  " << vertexId.replica_id << "."
-                          << vertexId.replicaInstance_id << " -> "
-                          << depId.replica_id << "." << depId.replicaInstance_id
-                          << std::endl);
+                         << vertexId.replicaInstance_id << " -> "
+                         << depId.replica_id << "." << depId.replicaInstance_id
+                         << std::endl);
             }
         }
 
-        LOG("[" << thisReplica_ << "] Dependency (Edge) count: " << dependencyCount << std::endl);
-        LOG("[" << thisReplica_ << "] Vertex count: " << depGraph.size() << std::endl);
+        LOG("[" << thisReplica_ << "] Dependency (Edge) count: "
+                << dependencyCount << std::endl);
+        LOG("[" << thisReplica_ << "] Vertex count: " << depGraph.size()
+                << std::endl);
 
         LOG("[" << thisReplica_ << "] Dependency list count: "
-                  << findInstanceById(id).attr.deps.size() << std::endl);
+                << findInstanceById(id).attr.deps.size() << std::endl);
 
-        #if ENABLE_EP_DEP_GRAPH_LOGGING
+#if ENABLE_EP_DEP_GRAPH_LOGGING
         {
             std::lock_guard<std::mutex> guard(COUT_LOCK);
-            auto t = std::chrono::high_resolution_clock::now().time_since_epoch();
-            std::cout << "write," << t.count() << "," << id.replicaInstance_id << ","
-                    << dependencyCount << "," << depGraph.size() << "," << key << "," << fastPath << std::endl;
+            auto t =
+                std::chrono::high_resolution_clock::now().time_since_epoch();
+            std::cout << "write," << t.count() << "," << id.replicaInstance_id
+                      << "," << dependencyCount << "," << depGraph.size() << ","
+                      << key << "," << fastPath << std::endl;
         }
-        #endif
+#endif
 
         return depGraph;
     }
@@ -355,11 +356,10 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         instances[inst.id.replica_id][inst.id.replicaInstance_id] = inst;
         lock.unlock();
 
-        LOG("[" << thisReplica_
-                  << "] Committed instance: " << printInstance(inst)
-                  << std::endl);
+        LOG("[" << thisReplica_ << "] Committed instance: "
+                << printInstance(inst) << std::endl);
         LOG("[" << thisReplica_ << "] Current replica state: \n"
-                  << instances_to_string() << std::endl);
+                << instances_to_string() << std::endl);
         // construct commit req message
         demo::CommitReq commitReq;
         demo::InstanceId* id = commitReq.mutable_id();
@@ -380,8 +380,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         c->set_value(inst.cmd.value);
 
         // send commit messages to all replicas asynchronously
-        LOG("----------------------------\n[" << thisReplica_
-                  << "] Sending Commit RPCs: " << std::endl);
+        LOG("----------------------------\n["
+            << thisReplica_ << "] Sending Commit RPCs: " << std::endl);
 
         grpc::CompletionQueue cq;
         struct AsyncCall {
@@ -436,8 +436,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         acceptReq.set_sender(thisReplica_);
 
         // send Accept to all slow quorum members
-        LOG("----------------------------\n[" << thisReplica_
-                  << "] Sending Accept RPCs: " << std::endl);
+        LOG("----------------------------\n["
+            << thisReplica_ << "] Sending Accept RPCs: " << std::endl);
 
         grpc::CompletionQueue cq;
         struct AsyncCall {
@@ -464,7 +464,6 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
             // request notification when the operation finishes asynchronously
             call->rpc->Finish(&call->reply, &call->status, call.get());
-
 
             // store the call in the map
             calls.emplace(peerName, std::move(call));
@@ -504,7 +503,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         int agreeCount = 0;
         for (const auto& [name, reply] : acceptReplies) {
             LOG(" From: " << name << "  Reply Details: "
-                      << " ok=" << (reply.ok() ? "true" : "false") << std::endl);
+                          << " ok=" << (reply.ok() ? "true" : "false")
+                          << std::endl);
 
             if (reply.ok()) {
                 agreeCount++;
@@ -519,12 +519,13 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // execute the instance, or at least, build the dependency graph
         std::string value;
         if (newInstance.cmd.action == epaxosTypes::Command::WRITE) {
-            LOG("----------------------------\n[" << thisReplica_
-                        << "] WRITE command detected for instance: "
-                        << printInstance(newInstance)
-                        << "; Skipping execution." << std::endl);
+            LOG("----------------------------\n["
+                << thisReplica_ << "] WRITE command detected for instance: "
+                << printInstance(newInstance) << "; Skipping execution."
+                << std::endl);
             value = "<successful>";
-            buildDependencyGraphForInstanceID(newInstance.id, newInstance.cmd.key, false);
+            buildDependencyGraphForInstanceID(newInstance.id,
+                                              newInstance.cmd.key, false);
         } else {
             value = execute(newInstance, false);
             // we don't handle reads so the value is unused
@@ -574,9 +575,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
     Status ClientWriteReq(ServerContext* /*ctx*/, const demo::WriteReq* req,
                           demo::WriteResp* resp) override {
-        LOG("----------------------------\n[" << thisReplica_
-                  << "] Received ClientWriteReq: key=" << req->key()
-                  << " value=" << req->value() << std::endl);
+        LOG("----------------------------\n["
+            << thisReplica_ << "] Received ClientWriteReq: key=" << req->key()
+            << " value=" << req->value() << std::endl);
 
         epaxosTypes::Instance newInstance;
         newInstance.cmd.action = epaxosTypes::Command::WRITE;
@@ -595,8 +596,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         instanceCounter_++;
 
         LOG("[" << thisReplica_
-                  << "] Created new instance: " << newInstance.id.replica_id
-                  << "." << newInstance.id.replicaInstance_id << std::endl);
+                << "] Created new instance: " << newInstance.id.replica_id
+                << "." << newInstance.id.replicaInstance_id << std::endl);
 
         instances[thisReplica_].push_back(newInstance);
 
@@ -636,8 +637,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         preAcceptReq.set_sender(thisReplica_);
 
         //  send PreAccept to all fast quorum members
-        LOG("----------------------------\n[" << thisReplica_
-                  << "] Sending PreAccept RPCs: " << std::endl);
+        LOG("----------------------------\n["
+            << thisReplica_ << "] Sending PreAccept RPCs: " << std::endl);
 
         auto preStart = high_resolution_clock::now();
 
@@ -666,8 +667,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                 &call->ctx, call->request, &cq);
 
             // request notification when the operation finishes asynchronously
-            call->rpc->Finish(&call->reply, &call->status,
-                              call.get());
+            call->rpc->Finish(&call->reply, &call->status, call.get());
 
             // store the call in the map
             calls.emplace(peerName, std::move(call));
@@ -703,16 +703,16 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             remaining--;
         }
 
-        LOG("----------------------------\n[" << thisReplica_
-                  << "] PreAccept Reply: " << std::endl);
+        LOG("----------------------------\n["
+            << thisReplica_ << "] PreAccept Reply: " << std::endl);
 
         int agreeCount = 0;
         for (const auto& [name, reply] : preAcceptReplies) {
             LOG(" From: " << name << "  Reply Details: "
-                      << " ok=" << (reply.ok() ? "true" : "false")
-                      << " seq=" << reply.seq()
-                      << " conflict=" << (reply.conflict() ? "true" : "false")
-                      << std::endl);
+                          << " ok=" << (reply.ok() ? "true" : "false")
+                          << " seq=" << reply.seq() << " conflict="
+                          << (reply.conflict() ? "true" : "false")
+                          << std::endl);
 
             if (reply.ok() && !reply.conflict()) {
                 agreeCount++;
@@ -726,43 +726,41 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         if (agreeCount >= fastQuorumNames_.size()) {
             auto preEnd = high_resolution_clock::now();
             // calculate request latency
-            int64_t latency = duration_cast<nanoseconds>(preEnd - preStart).count();
+            int64_t latency =
+                duration_cast<nanoseconds>(preEnd - preStart).count();
+            LOG("[" << thisReplica_ << "] PreAccept phase took " << latency
+                    << "nanoseconds for instance: " << newInstance.id.replica_id
+                    << "." << newInstance.id.replicaInstance_id << std::endl);
             LOG("[" << thisReplica_
-                      << "] PreAccept phase took " << latency
-                      << "nanoseconds for instance: "
-                      << newInstance.id.replica_id << "."
-                      << newInstance.id.replicaInstance_id
-                      << std::endl);
-            LOG("[" << thisReplica_
-                      << "] PreAccept phase succeeded for instance: "
-                      << newInstance.id.replica_id << "."
-                      << newInstance.id.replicaInstance_id
-                      << "because agreeCount=" << agreeCount
-                      << " >= " << "peerSize=" << peerSize
-                      << "; Go to fast path" << std::endl);
+                    << "] PreAccept phase succeeded for instance: "
+                    << newInstance.id.replica_id << "."
+                    << newInstance.id.replicaInstance_id
+                    << "because agreeCount=" << agreeCount
+                    << " >= " << "peerSize=" << peerSize << "; Go to fast path"
+                    << std::endl);
             // commit the instance
             commit(newInstance);
 
             // execute the instance, or at least, build the dependency graph
             std::string value;
             if (newInstance.cmd.action == epaxosTypes::Command::WRITE) {
-                LOG("----------------------------\n[" << thisReplica_
-                          << "] WRITE command detected for instance: "
-                          << printInstance(newInstance)
-                          << "; Skipping execution." << std::endl);
+                LOG("----------------------------\n["
+                    << thisReplica_ << "] WRITE command detected for instance: "
+                    << printInstance(newInstance) << "; Skipping execution."
+                    << std::endl);
                 value = "<successful>";
-                buildDependencyGraphForInstanceID(newInstance.id, newInstance.cmd.key, true);
+                buildDependencyGraphForInstanceID(newInstance.id,
+                                                  newInstance.cmd.key, true);
             } else {
                 value = execute(newInstance, true);
             }
             resp->set_status("write accepted");
             return Status::OK;
         } else {
-            LOG("[" << thisReplica_
-                      << "] PreAccept phase FAILED for instance: "
-                      << newInstance.id.replica_id << "."
-                      << newInstance.id.replicaInstance_id
-                      << "; Go to slow path" << std::endl);
+            LOG("[" << thisReplica_ << "] PreAccept phase FAILED for instance: "
+                    << newInstance.id.replica_id << "."
+                    << newInstance.id.replicaInstance_id << "; Go to slow path"
+                    << std::endl);
 
             return run_paxos_accept(newInstance, c, id);
         }
@@ -773,10 +771,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     Status PreAccept(ServerContext* /*ctx*/, const demo::PreAcceptReq* req,
                      demo::PreAcceptReply* resp) override {
         LOG("----------------------------\n"
-                  << "[" << thisReplica_
-                  << "] Received PreAcceptReq for instance "
-                  << req->id().replica_id() << "."
-                  << req->id().instance_seq_id() << std::endl);
+            << "[" << thisReplica_ << "] Received PreAcceptReq for instance "
+            << req->id().replica_id() << "." << req->id().instance_seq_id()
+            << std::endl);
 
         if (req->sender().empty()) {
             throw std::runtime_error("PreAcceptReq: replica_id is empty");
@@ -795,8 +792,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         cmd.value = std::string(req->cmd().value());
 
         LOG("  Command: action=" << req->cmd().action()
-                  << " key=" << req->cmd().key()
-                  << " value=" << req->cmd().value() << std::endl);
+                                 << " key=" << req->cmd().key() << " value="
+                                 << req->cmd().value() << std::endl);
 
         // construct seq/dep from request
         auto seq = req->seq();
@@ -870,10 +867,9 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
                         }),
             proposedDeps.end());
 
-        LOG("  Proposed Seq: " << proposedSeq
-                  << "  Proposed Deps: " << vec_to_string(proposedDeps)
-                  << ". Conflict: " << (conflict ? "true" : "false")
-                  << std::endl);
+        LOG("  Proposed Seq: "
+            << proposedSeq << "  Proposed Deps: " << vec_to_string(proposedDeps)
+            << ". Conflict: " << (conflict ? "true" : "false") << std::endl);
 
         // store the instance locally
         epaxosTypes::Instance newInstance;
@@ -892,12 +888,12 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         }
         instances[instanceId.replica_id][instanceId.replicaInstance_id] =
             newInstance;
-        
+
         lock.unlock();
 
         LOG("[" << thisReplica_
-                  << "] Stored new instance: " << newInstance.id.replica_id
-                  << "." << newInstance.id.replicaInstance_id << std::endl);
+                << "] Stored new instance: " << newInstance.id.replica_id << "."
+                << newInstance.id.replicaInstance_id << std::endl);
 
         // prepare the reply message
         resp->set_ok(true);
@@ -925,13 +921,13 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
             throw std::runtime_error("AcceptReq: sender and proposal mismatch");
         }
 
-        LOG("[" << thisReplica_ << "] Received Accept from "
-                  << req->sender() << " for instance " << req->id().replica_id()
-                  << "." << req->id().instance_seq_id() << " seq=" << req->seq()
-                  << std::endl);
+        LOG("[" << thisReplica_ << "] Received Accept from " << req->sender()
+                << " for instance " << req->id().replica_id() << "."
+                << req->id().instance_seq_id() << " seq=" << req->seq()
+                << std::endl);
 
         // set instances[L][i] to accepted
-       std::unique_lock<std::mutex> lock(instances_mu_);
+        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[req->id().replica_id()][req->id().instance_seq_id()].status =
             epaxosTypes::Status::ACCEPTED;
         lock.unlock();
@@ -946,8 +942,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     Status Commit(ServerContext* /*ctx*/, const demo::CommitReq* req,
                   demo::CommitReply* /*resp*/) override {
         LOG("[" << thisReplica_ << "] Received Commit for instance "
-                  << req->id().replica_id() << "."
-                  << req->id().instance_seq_id() << std::endl);
+                << req->id().replica_id() << "." << req->id().instance_seq_id()
+                << std::endl);
 
         // store the instance locally
         epaxosTypes::Instance newInstance;
@@ -970,8 +966,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         lock.unlock();
 
         LOG("[" << thisReplica_
-                  << "] Committed instance: " << instanceId.replica_id
-                  << "." << instanceId.replicaInstance_id << std::endl);
+                << "] Committed instance: " << instanceId.replica_id << "."
+                << instanceId.replicaInstance_id << std::endl);
         return Status::OK;
     }
 
@@ -1110,9 +1106,9 @@ int run_ep_server(int argc, char** argv) {
 
         std::unique_ptr<Server> server(builder.BuildAndStart());
         LOG("Server listening on " << addr << " peers=" << peers_csv
-                  << std::endl);
-        LOG("[" << name << "] listening on " << addr
-                  << " peers=" << peers_csv << std::endl);
+                                   << std::endl);
+        LOG("[" << name << "] listening on " << addr << " peers=" << peers_csv
+                << std::endl);
         server->Wait();
         return 0;
     } else if (application == "e") {
@@ -1145,13 +1141,14 @@ int run_ep_server(int argc, char** argv) {
         size_t slow_path_quorum_size = f + 1;
 
         LOG("[" << name << "] Determined f=" << f
-                  << ", fast_path_quorum_size=" << fast_path_quorum_size
-                  << ", slow_path_quorum_size=" << slow_path_quorum_size
-                  << std::endl);
+                << ", fast_path_quorum_size=" << fast_path_quorum_size
+                << ", slow_path_quorum_size=" << slow_path_quorum_size
+                << std::endl);
 
-        std::vector<std::string> fast_path_quorum(peer_names.begin(), peer_names.begin() + fast_path_quorum_size - 1);
-        std::vector<std::string> slow_path_quorum(peer_names.begin(), peer_names.begin() + slow_path_quorum_size - 1);
-
+        std::vector<std::string> fast_path_quorum(
+            peer_names.begin(), peer_names.begin() + fast_path_quorum_size - 1);
+        std::vector<std::string> slow_path_quorum(
+            peer_names.begin(), peer_names.begin() + slow_path_quorum_size - 1);
 
         EPaxosReplica service(name, peer_name_to_addr, fast_path_quorum,
                               slow_path_quorum);  // create a server structure
@@ -1171,7 +1168,7 @@ int run_ep_server(int argc, char** argv) {
         }
 
         LOG("[" << name << "] listening on EPaxos replica " << addr
-                  << " peers=" << map_to_string(peer_name_to_addr) << std::endl);
+                << " peers=" << map_to_string(peer_name_to_addr) << std::endl);
         server->Wait();
         return 0;
     } else {
