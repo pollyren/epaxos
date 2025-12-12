@@ -342,6 +342,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         newInstance.cmd.value = std::string(req->value());
         newInstance.status = multipaxosTypes::Status::PREPARED;
         newInstance.id.replica_id = thisReplica_;
+        std::unique_lock<std::mutex> lock(instances_mu_);
         newInstance.id.replicaInstance_id = instanceCounter_;
         instanceCounter_++;
 
@@ -349,7 +350,6 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
                   << "] Created new instance: " << newInstance.id.replica_id
                   << "." << newInstance.id.replicaInstance_id << std::endl);
 
-        std::unique_lock<std::mutex> lock(instances_mu_);
         instances[thisReplica_].push_back(newInstance);
 
         if (instances[thisReplica_].size() != instanceCounter_) {
@@ -521,7 +521,9 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
     Status ClientGetStateReq(ServerContext* /*ctx*/, const mp::GetStateReq* req,
                              mp::GetStateResp* resp) override {
         std::string result = "";
+        std::unique_lock<std::mutex> lock(instances_mu_);
         result += "Instance count: " + std::to_string(instanceCounter_) + "\n";
+        lock.unlock();
         resp->set_state(result);
         return Status::OK;
     }
