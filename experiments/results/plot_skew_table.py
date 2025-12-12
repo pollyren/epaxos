@@ -69,13 +69,13 @@ def main():
         label = col_name.replace("skew", "skew ")
         plt.plot(xs, ys, marker="o", label=label)
 
-    plt.xlabel("Number of clients")
-    plt.ylabel("Percentage fast path (%)")
-    plt.title("Percentage of request going to fast path vs. number of clients")
+    plt.xlabel("Throughput (ops/sec)" )
+    plt.ylabel("Percentage of requests going to fast path (%)")
+    plt.title("Percentage of requests going to fast path vs. throughput")
     plt.legend()
     plt.grid(True, linestyle="--", alpha=0.4)
     plt.tight_layout()
-    plt.show()
+    plt.savefig("fast_path_percentage_vs_throughput.png")
 
 if __name__ == "__main__":
     main()
