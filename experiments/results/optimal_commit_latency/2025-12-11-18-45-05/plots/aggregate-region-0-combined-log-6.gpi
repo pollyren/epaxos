@@ -1,0 +1,16 @@
+set datafile separator ','
+set title "\nclient\\\_total=[5, 10, 20, 40, 80, 160, 320, 640]\n"
+set key bottom right
+set ytics (0,0.9,0.99,0.999,0.9999,1.0)
+set xlabel 'Latency (ms)'
+set ylabel 'Cumulative ratio of operations'
+set terminal pngcairo size 800,600 enhanced dashed font 'DejaVu Sans,12'
+set output '/users/rghilea/epaxos/experiments/results/5-replicas-wan/2025-12-11-18-45-05/plots/aggregate-region-0-combined-log-6.png'
+set style line 1 linetype 1 linewidth 2
+set style line 2 linetype 1 linecolor "green" linewidth 2
+set style line 3 linetype 1 linecolor "blue" linewidth 2
+set style line 4 linetype 4 linewidth 2
+set style line 5 linetype 5 linewidth 2
+set style line 6 linetype 8 linewidth 2
+plot '/users/rghilea/epaxos/experiments/results/5-replicas-wan/2025-12-11-18-45-05/2025-12-11-18-45-05/2025-12-11-18-49-21/out/plots/aggregate-region-0-combined-log.csv' using 1:(-log10(1-$2)):yticlabels(3) title "replication\\\_protocol=multi\\\_paxos" ls 1 with lines, \
+'/users/rghilea/epaxos/experiments/results/5-replicas-wan/2025-12-11-18-45-05/2025-12-11-18-50-55/2025-12-11-18-55-08/out/plots/aggregate-region-0-combined-log.csv' using 1:(-log10(1-$2)) title "replication\\\_protocol=epaxos" ls 2 with lines
