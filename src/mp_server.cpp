@@ -44,7 +44,7 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
    private:
     std::string thisReplica_;  // my name
     bool is_leader_;           // does this replica think it is the leader
-    int instanceCounter_ = 0;  // instance counter
+    std::atomic<int> instanceCounter_{0};  // instance counter
 
     // all peer addrs and stubs
     std::map<std::string, std::unique_ptr<mp::MultiPaxosReplica::Stub>>
@@ -342,22 +342,22 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
         newInstance.cmd.value = std::string(req->value());
         newInstance.status = multipaxosTypes::Status::PREPARED;
         newInstance.id.replica_id = thisReplica_;
-        std::unique_lock<std::mutex> lock(instances_mu_);
-        newInstance.id.replicaInstance_id = instanceCounter_;
-        instanceCounter_++;
+        int myInstId = instanceCounter_.fetch_add(1);
+        newInstance.id.replicaInstance_id = myInstId;
+
+        {
+            std::unique_lock<std::mutex> lock(instances_mu_);
+            instances[thisReplica_].push_back(newInstance);
+
+            // Optional sanity check
+            if (instances[thisReplica_].size() != static_cast<size_t>(myInstId + 1)) {
+                throw std::runtime_error("RPC failed: instance counter mismatch");
+            }
+        }
 
         LOG("[" << thisReplica_
                   << "] Created new instance: " << newInstance.id.replica_id
                   << "." << newInstance.id.replicaInstance_id << std::endl);
-
-        instances[thisReplica_].push_back(newInstance);
-
-        if (instances[thisReplica_].size() != instanceCounter_) {
-            lock.unlock();
-            throw std::runtime_error("RPC failed: instance counter mismatch");
-        }
-
-        lock.unlock();
 
         // Accept Phase
         auto accStart = high_resolution_clock::now();
@@ -521,9 +521,8 @@ class MultiPaxosReplica final : public mp::MultiPaxosReplica::Service {
     Status ClientGetStateReq(ServerContext* /*ctx*/, const mp::GetStateReq* req,
                              mp::GetStateResp* resp) override {
         std::string result = "";
-        std::unique_lock<std::mutex> lock(instances_mu_);
-        result += "Instance count: " + std::to_string(instanceCounter_) + "\n";
-        lock.unlock();
+        int count = instanceCounter_.load();
+        result += "Instance count: " + std::to_string(count) + "\n";
         resp->set_state(result);
         return Status::OK;
     }
