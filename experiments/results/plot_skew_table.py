@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import csv
 import matplotlib.pyplot as plt
+import sys
 
-TABLE_FILE = "skew_clients_table.csv"  # produced by make_table.py
+TABLE_FILE_WAN = "skew_clients_table_wan.csv"  # produced by make_table.py
+TABLE_FILE_LAN = "skew_clients_table_lan.csv"  # produced by make_table.py
 
 def read_table(path):
     clients = []
@@ -44,13 +46,15 @@ def read_table(path):
     return clients, skew_series
 
 def main():
-    clients, skew_series = read_table(TABLE_FILE)
+    name = sys.argv[1]
+    table = TABLE_FILE_WAN if name == "wan" else TABLE_FILE_LAN
+    clients, skew_series = read_table(table)
 
     if not clients:
         print("No client data found.")
         return
 
-    plt.figure(figsize=(8, 5))
+    plt.figure(figsize=(10, 5))
 
     for col_name, values in skew_series.items():
         # Filter out None entries, if any
@@ -67,15 +71,16 @@ def main():
 
         # label like "skew0" -> "skew 0"
         label = col_name.replace("skew", "skew ")
-        plt.plot(xs, ys, marker="o", label=label)
+        plt.plot(xs, ys, label=label)
 
+    name = name.upper()
     plt.xlabel("Throughput (ops/sec)" )
-    plt.ylabel("Percentage of requests going to fast path (%)")
-    plt.title("Percentage of requests going to fast path vs. throughput")
+    plt.ylabel("Percentage of requests taking fast path (%)")
+    plt.title(f"Percentage of requests taking fast path by throughput ({name})")
     plt.legend()
     plt.grid(True, linestyle="--", alpha=0.4)
     plt.tight_layout()
-    plt.savefig("fast_path_percentage_vs_throughput.png")
+    plt.savefig(f"fast_path_percentage_vs_throughput_{name}.png")
 
 if __name__ == "__main__":
     main()

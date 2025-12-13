@@ -3,10 +3,16 @@ import os
 import csv
 
 # Map directory -> skew label you want in the table
-SKEW_DIRS = {
+SKEW_DIRS_WAN = {
     "skew00-wan-100keys-consolidated": 0,
     "skew50-wan-100keys-consolidated": 50,
-    "skew99-wan-100keys-consolidated": 99, 
+    "skew99-wan-100keys-consolidated": 99,
+}
+
+SKEW_DIRS_LAN = {
+    "skew00-lan-100keys-consolidated": 0,
+    "skew50-lan-100keys-consolidated": 50,
+    "skew99-lan-100keys-consolidated": 99,
 }
 
 # Base directory where those skew directories live
@@ -34,13 +40,13 @@ def compute_percentage_for_csv(path):
         return None
     return (ones / total) * 100.0
 
-def main():
+def make_table(dirs_dict, outfile):
     # table[clients][skew] = percentage
     table = {}
     client_counts = set()
     skew_values = []
 
-    for dirname, skew in SKEW_DIRS.items():
+    for dirname, skew in dirs_dict.items():
         skew_values.append(skew)
         dir_path = os.path.join(BASE_DIR, dirname)
         if not os.path.isdir(dir_path):
@@ -79,18 +85,21 @@ def main():
     # Print as CSV: header row then one row per client count
     # Header: "clients, skew0, skew50, skew90"
     header = ["clients"] + [f"skew{skew}" for skew in skew_values]
-    print(",".join(header))
 
-    for clients in client_counts:
-        row = [str(clients)]
-        for skew in skew_values:
-            pct = table.get(clients, {}).get(skew)
-            if pct is None:
-                row.append("")
-            else:
-                # Format to, say, 2 decimal places
-                row.append(f"{pct:.2f}")
-        print(",".join(row))
+    with open(outfile, "w", newline="") as f:
+        print(",".join(header), file=f)
+
+        for clients in client_counts:
+            row = [str(clients)]
+            for skew in skew_values:
+                pct = table.get(clients, {}).get(skew)
+                if pct is None:
+                    row.append("")
+                else:
+                    # Format to, say, 2 decimal places
+                    row.append(f"{pct:.2f}")
+            print(",".join(row), file=f)
 
 if __name__ == "__main__":
-    main()
+    make_table(SKEW_DIRS_WAN, "skew_clients_table_wan.csv")
+    make_table(SKEW_DIRS_LAN, "skew_clients_table_lan.csv")
