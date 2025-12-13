@@ -27,9 +27,10 @@ def read_table(path):
             if not row:
                 continue
             try:
-                c = int(row[0])
+                c = float(row[0])
             except ValueError:
                 # skip malformed row
+                print(f"Warning: skipping malformed row: {row}")
                 continue
             clients.append(c)
 
@@ -49,6 +50,12 @@ def main():
     name = sys.argv[1]
     table = TABLE_FILE_WAN if name == "wan" else TABLE_FILE_LAN
     clients, skew_series = read_table(table)
+
+    # sort by first column
+    sorted_pairs = sorted(zip(clients, *skew_series.values()))
+    clients = [pair[0] for pair in sorted_pairs]
+    for i, col in enumerate(skew_series.keys()):
+        skew_series[col] = [pair[i+1] for pair in sorted_pairs]
 
     if not clients:
         print("No client data found.")
@@ -78,7 +85,6 @@ def main():
     plt.ylabel("Percentage of requests taking fast path (%)")
     plt.title(f"Percentage of requests taking fast path by throughput ({name})")
     plt.legend()
-    plt.grid(True, linestyle="--", alpha=0.4)
     plt.tight_layout()
     plt.savefig(f"fast_path_percentage_vs_throughput_{name}.png")
 

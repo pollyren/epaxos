@@ -38,7 +38,7 @@ def compute_percentage_for_csv(path):
 
     if total == 0:
         return None
-    return (ones / total) * 100.0
+    return (ones / total) * 100.0, total
 
 def make_table(dirs_dict, outfile):
     # table[clients][skew] = percentage
@@ -54,7 +54,11 @@ def make_table(dirs_dict, outfile):
             continue
 
         for fname in os.listdir(dir_path):
-            if not fname.endswith(".csv"):
+            if not fname.endswith(".csv") or "server0" in fname:
+                continue
+
+            prefix = fname.split(".")[0]
+            if prefix and int(prefix) >= 80:
                 continue
 
             # Filename is like "5.csv" -> clients = 5
@@ -68,11 +72,12 @@ def make_table(dirs_dict, outfile):
             client_counts.add(clients)
 
             csv_path = os.path.join(dir_path, fname)
-            pct = compute_percentage_for_csv(csv_path)
+            pct, total = compute_percentage_for_csv(csv_path)
             if pct is None:
                 continue
 
             table.setdefault(clients, {})[skew] = pct
+            table.setdefault(clients, {})['tput'] = total / 30
 
     if not table:
         print("No data found; check directory names and CSV contents.")
@@ -84,13 +89,14 @@ def make_table(dirs_dict, outfile):
 
     # Print as CSV: header row then one row per client count
     # Header: "clients, skew0, skew50, skew90"
-    header = ["clients"] + [f"skew{skew}" for skew in skew_values]
+    header = ["tput"] + [f"skew{skew}" for skew in skew_values]
 
     with open(outfile, "w", newline="") as f:
         print(",".join(header), file=f)
 
         for clients in client_counts:
-            row = [str(clients)]
+            tput = table.get(clients, {}).get('tput', 0)
+            row = [str(tput)]
             for skew in skew_values:
                 pct = table.get(clients, {}).get(skew)
                 if pct is None:
