@@ -1,5 +1,5 @@
 syntax = "proto3";
-package demo;
+package epaxos;
 
 enum Action {
   READ = 0; // proto3 enums MUST have a 0 value
@@ -20,7 +20,7 @@ message PreAcceptReq {
   repeated InstanceId deps = 3;      // tentative deps --> a set of instances
   InstanceId id = 4;                 // instance being pre-accepted
   Ballot ballot = 5;
-  string sender = 6;          // sender replica
+  string sender = 6;                 // sender replica
 }
 
 message PreAcceptReply {
@@ -63,39 +63,25 @@ message WriteResp {
   string status = 1;
 }
 
-
 //for testing
-message GetStateReq {
-}
+message GetStateReq {}
 
 message GetStateResp {
   string state = 1;
 }
 
-
-
 // EPaxos Replica Service
 service EPaxosReplica {
-
-
-    // Client -> Replica
+  // Client -> Replica
   rpc ClientTest(WriteReq) returns (WriteResp);
   rpc ClientWriteReq(WriteReq) returns (WriteResp);
   rpc ClientGetStateReq(GetStateReq) returns (GetStateResp);
 
-
-    // Replica -> Replica
+  // Replica -> Replica
   rpc PreAccept(PreAcceptReq) returns (PreAcceptReply);
   rpc Accept_(AcceptReq) returns (AcceptReply);
   rpc Commit(CommitReq) returns (CommitReply);
-  //rpc Commit(CommitReq) returns (CommitReply);
-  //rpc Prepare(PrepareReq) returns (PrepareReply);
 }
-
-
-
-
-
 
 service Echo {
   // Client -> Server
@@ -112,8 +98,8 @@ message PingReq {
 }
 
 message PingResp {
-  string reply = 1;                 // e.g., "pong: <msg>"
-  string from  = 2;                 // which server handled the call
+  string reply = 1;                   // e.g., "pong: <msg>"
+  string from  = 2;                   // which server handled the call
   repeated string broadcasted_to = 3; // list of peer acks
 }
 

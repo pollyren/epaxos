@@ -46,14 +46,14 @@ std::string now_ns_str() {
 }
 }  // namespace
 
-class EPaxosReplica final : public demo::EPaxosReplica::Service {
+class EPaxosReplica final : public epaxos::EPaxosReplica::Service {
    private:
     std::string thisReplica_;  // my name
 
     int instanceCounter_ = 0;  // instance counter
 
     // all peer addrs and stubs
-    std::map<std::string, std::unique_ptr<demo::EPaxosReplica::Stub>>
+    std::map<std::string, std::unique_ptr<epaxos::EPaxosReplica::Stub>>
         peersNameToStub_;
 
     int peerSize;
@@ -361,21 +361,21 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         LOG("[" << thisReplica_ << "] Current replica state: \n"
                 << instances_to_string() << std::endl);
         // construct commit req message
-        demo::CommitReq commitReq;
-        demo::InstanceId* id = commitReq.mutable_id();
+        epaxos::CommitReq commitReq;
+        epaxos::InstanceId* id = commitReq.mutable_id();
         id->set_replica_id(inst.id.replica_id);
         id->set_instance_seq_id(inst.id.replicaInstance_id);
 
         commitReq.set_seq(inst.attr.seq);
 
         for (const auto& dep : inst.attr.deps) {
-            demo::InstanceId* depId = commitReq.add_deps();
+            epaxos::InstanceId* depId = commitReq.add_deps();
             depId->set_replica_id(dep.replica_id);
             depId->set_instance_seq_id(dep.replicaInstance_id);
         }
 
-        demo::Command* c = commitReq.mutable_cmd();
-        c->set_action(static_cast<demo::Action>(inst.cmd.action));
+        epaxos::Command* c = commitReq.mutable_cmd();
+        c->set_action(static_cast<epaxos::Action>(inst.cmd.action));
         c->set_key(inst.cmd.key);
         c->set_value(inst.cmd.value);
 
@@ -386,11 +386,11 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         grpc::CompletionQueue cq;
         struct AsyncCall {
             grpc::ClientContext ctx;
-            demo::CommitReply reply;
+            epaxos::CommitReply reply;
             grpc::Status status;
             std::string peerName;
-            demo::CommitReq request;
-            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::CommitReply>>
+            epaxos::CommitReq request;
+            std::unique_ptr<grpc::ClientAsyncResponseReader<epaxos::CommitReply>>
                 rpc;
         };
 
@@ -411,10 +411,10 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         // and EPaxos proceeds without waiting for these commit acks
     }
 
-    Status run_paxos_accept(epaxosTypes::Instance newInstance, demo::Command c,
-                            demo::InstanceId id) {
+    Status run_paxos_accept(epaxosTypes::Instance newInstance, epaxos::Command c,
+                            epaxos::InstanceId id) {
         // prepare and send accept messages
-        demo::AcceptReq acceptReq;
+        epaxos::AcceptReq acceptReq;
 
         // set instance to accepted
         std::unique_lock<std::mutex> lock(instances_mu_);
@@ -427,7 +427,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         // prepare the deps
         for (const auto& dep : newInstance.attr.deps) {
-            demo::InstanceId* depId = acceptReq.add_deps();
+            epaxos::InstanceId* depId = acceptReq.add_deps();
             depId->set_replica_id(dep.replica_id);
             depId->set_instance_seq_id(dep.replicaInstance_id);
         }
@@ -442,12 +442,12 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         grpc::CompletionQueue cq;
         struct AsyncCall {
             grpc::ClientContext ctx;
-            demo::AcceptReply reply;
+            epaxos::AcceptReply reply;
             grpc::Status status;
             std::string peerName;
-            demo::AcceptReq request;
+            epaxos::AcceptReq request;
 
-            std::unique_ptr<grpc::ClientAsyncResponseReader<demo::AcceptReply>>
+            std::unique_ptr<grpc::ClientAsyncResponseReader<epaxos::AcceptReply>>
                 rpc;
         };
 
@@ -473,7 +473,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         // collect all accept replies
         int remaining = slowQuorumNames_.size();
-        std::map<std::string, demo::AcceptReply> acceptReplies;
+        std::map<std::string, epaxos::AcceptReply> acceptReplies;
 
         while (remaining > 0) {
             AsyncCall* asyncCall;
@@ -543,7 +543,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         peerSize = peer_name_to_addrs.size();
         // keep a list of peer addresses and stubs
         for (const auto& [name, addr] : peer_name_to_addrs) {
-            peersNameToStub_[name] = demo::EPaxosReplica::NewStub(
+            peersNameToStub_[name] = epaxos::EPaxosReplica::NewStub(
                 grpc::CreateChannel(addr, grpc::InsecureChannelCredentials()));
         }
 
@@ -573,8 +573,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         peerSize = peer_name_to_addrs.size();
     }
 
-    Status ClientWriteReq(ServerContext* /*ctx*/, const demo::WriteReq* req,
-                          demo::WriteResp* resp) override {
+    Status ClientWriteReq(ServerContext* /*ctx*/, const epaxos::WriteReq* req,
+                          epaxos::WriteResp* resp) override {
         LOG("----------------------------\n["
             << thisReplica_ << "] Received ClientWriteReq: key=" << req->key()
             << " value=" << req->value() << std::endl);
@@ -609,11 +609,11 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         lock.unlock();
 
         // Now prepare and send pre-accept messages
-        demo::PreAcceptReq preAcceptReq;
+        epaxos::PreAcceptReq preAcceptReq;
 
         // prepare the command (gamma)
-        demo::Command c;
-        c.set_action(demo::Action::WRITE);
+        epaxos::Command c;
+        c.set_action(epaxos::Action::WRITE);
         c.set_key(req->key());
         c.set_value(req->value());
         preAcceptReq.mutable_cmd()->CopyFrom(c);
@@ -623,14 +623,14 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         // prepare ids of the dependencies
         for (const auto& dep : deps) {
-            demo::InstanceId id;
+            epaxos::InstanceId id;
             id.set_replica_id(dep.replica_id);
             id.set_instance_seq_id(dep.replicaInstance_id);
             preAcceptReq.add_deps()->CopyFrom(id);
         }
 
         // prepare id L.i for this instance
-        demo::InstanceId id;
+        epaxos::InstanceId id;
         id.set_replica_id(newInstance.id.replica_id);
         id.set_instance_seq_id(newInstance.id.replicaInstance_id);
         preAcceptReq.mutable_id()->CopyFrom(id);
@@ -645,13 +645,13 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         grpc::CompletionQueue cq;
         struct AsyncCall {
             grpc::ClientContext ctx;
-            demo::PreAcceptReply reply;
+            epaxos::PreAcceptReply reply;
             grpc::Status status;
             std::string peerName;
-            demo::PreAcceptReq request;
+            epaxos::PreAcceptReq request;
 
             std::unique_ptr<
-                grpc::ClientAsyncResponseReader<demo::PreAcceptReply>>
+                grpc::ClientAsyncResponseReader<epaxos::PreAcceptReply>>
                 rpc;
         };
 
@@ -677,7 +677,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
 
         // collect all preAccept replies
         int remaining = fastQuorumNames_.size();
-        std::map<std::string, demo::PreAcceptReply> preAcceptReplies;
+        std::map<std::string, epaxos::PreAcceptReply> preAcceptReplies;
 
         while (remaining > 0) {
             AsyncCall* asyncCall;
@@ -768,8 +768,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return Status::OK;
     }
 
-    Status PreAccept(ServerContext* /*ctx*/, const demo::PreAcceptReq* req,
-                     demo::PreAcceptReply* resp) override {
+    Status PreAccept(ServerContext* /*ctx*/, const epaxos::PreAcceptReq* req,
+                     epaxos::PreAcceptReply* resp) override {
         LOG("----------------------------\n"
             << "[" << thisReplica_ << "] Received PreAcceptReq for instance "
             << req->id().replica_id() << "." << req->id().instance_seq_id()
@@ -901,7 +901,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         resp->set_seq(proposedSeq);
         resp->set_already_committed(false);
         for (const auto& dep : proposedDeps) {
-            demo::InstanceId* d = resp->add_deps();
+            epaxos::InstanceId* d = resp->add_deps();
             d->set_replica_id(dep.replica_id);
             d->set_instance_seq_id(dep.replicaInstance_id);
         }
@@ -911,8 +911,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return Status::OK;
     }
 
-    Status Accept_(ServerContext* /* ctx */, const demo::AcceptReq* req,
-                   demo::AcceptReply* resp) override {
+    Status Accept_(ServerContext* /* ctx */, const epaxos::AcceptReq* req,
+                   epaxos::AcceptReply* resp) override {
         if (req->sender().empty()) {
             throw std::runtime_error("AcceptReq: replica_id is empty");
         }
@@ -939,8 +939,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
         return Status::OK;
     }
 
-    Status Commit(ServerContext* /*ctx*/, const demo::CommitReq* req,
-                  demo::CommitReply* /*resp*/) override {
+    Status Commit(ServerContext* /*ctx*/, const epaxos::CommitReq* req,
+                  epaxos::CommitReply* /*resp*/) override {
         LOG("[" << thisReplica_ << "] Received Commit for instance "
                 << req->id().replica_id() << "." << req->id().instance_seq_id()
                 << std::endl);
@@ -972,8 +972,8 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     }
 
     Status ClientGetStateReq(ServerContext* /*ctx*/,
-                             const demo::GetStateReq* req,
-                             demo::GetStateResp* resp) override {
+                             const epaxos::GetStateReq* req,
+                             epaxos::GetStateResp* resp) override {
         std::string result = "";
         std::unique_lock<std::mutex> lock(instances_mu_);
         result += "Instance count: " + std::to_string(instanceCounter_) + "\n";
@@ -983,7 +983,7 @@ class EPaxosReplica final : public demo::EPaxosReplica::Service {
     }
 };
 
-class EchoServiceImpl final : public demo::Echo::Service {
+class EchoServiceImpl final : public epaxos::Echo::Service {
    public:
     EchoServiceImpl(std::string name,
                     const std::vector<std::string>& peer_addrs)
@@ -991,18 +991,18 @@ class EchoServiceImpl final : public demo::Echo::Service {
         // keep a list of peer addresses and stubs
         for (const auto& a : peer_addrs) {
             peer_addrs_.push_back(a);
-            peer_stubs_.push_back(demo::Echo::NewStub(
+            peer_stubs_.push_back(epaxos::Echo::NewStub(
                 grpc::CreateChannel(a, grpc::InsecureChannelCredentials())));
         }
     }
 
-    Status Ping(ServerContext* /*ctx*/, const demo::PingReq* req,
-                demo::PingResp* resp) override {
+    Status Ping(ServerContext* /*ctx*/, const epaxos::PingReq* req,
+                epaxos::PingResp* resp) override {
         resp->set_reply(std::string("pong: ") + req->msg());
         resp->set_from(name_);
 
         if (req->fanout()) {
-            demo::BcastReq b;
+            epaxos::BcastReq b;
             b.set_msg(req->msg());
             b.set_origin(name_);
             const std::string uuid =
@@ -1016,8 +1016,8 @@ class EchoServiceImpl final : public demo::Echo::Service {
         return Status::OK;
     }
 
-    Status Broadcast(ServerContext* /*ctx*/, const demo::BcastReq* req,
-                     demo::BcastResp* resp) override {
+    Status Broadcast(ServerContext* /*ctx*/, const epaxos::BcastReq* req,
+                     epaxos::BcastResp* resp) override {
         // de-dup by uuid
         {
             std::lock_guard<std::mutex> lk(mu_);
@@ -1031,7 +1031,7 @@ class EchoServiceImpl final : public demo::Echo::Service {
 
         // forward if ttl > 0 (fire-and-forget to avoid blocking caller)
         if (req->ttl() > 0) {
-            demo::BcastReq fwd = *req;  // copy
+            epaxos::BcastReq fwd = *req;  // copy
             fwd.set_ttl(req->ttl() - 1);
             std::thread([this, fwd]() {
                 (void)broadcast_to_peers(fwd);
@@ -1043,7 +1043,7 @@ class EchoServiceImpl final : public demo::Echo::Service {
    private:  // internal state of server
     std::string name_;
     std::vector<std::string> peer_addrs_;
-    std::vector<std::unique_ptr<demo::Echo::Stub>> peer_stubs_;
+    std::vector<std::unique_ptr<epaxos::Echo::Stub>> peer_stubs_;
     std::mutex mu_;
     std::unordered_set<std::string> seen_;  // broadcast de-dup
 
@@ -1054,10 +1054,10 @@ class EchoServiceImpl final : public demo::Echo::Service {
         return ss.str();
     }
 
-    std::vector<std::string> broadcast_to_peers(const demo::BcastReq& req) {
+    std::vector<std::string> broadcast_to_peers(const epaxos::BcastReq& req) {
         std::vector<std::string> acks;
         for (size_t i = 0; i < peer_stubs_.size(); ++i) {
-            demo::BcastResp r;
+            epaxos::BcastResp r;
             grpc::ClientContext ctx;
             auto status = peer_stubs_[i]->Broadcast(&ctx, req, &r);
             if (status.ok()) {
