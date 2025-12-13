@@ -2,9 +2,10 @@
 import csv
 from collections import Counter, defaultdict
 import matplotlib.pyplot as plt
+import sys
 
 # Input CSV file
-CSV_FILE = "skew99-20client-server0.csv"  # change if needed
+CSV_FILE = "skew99-20client-server0-{}.csv"  # change if needed
 
 def load_sorted_rows(path):
     """
@@ -53,10 +54,12 @@ def load_sorted_rows(path):
     return rows
 
 def main():
-    rows = load_sorted_rows(CSV_FILE)
+    rows = load_sorted_rows(CSV_FILE.format(sys.argv[1]))
     if not rows:
         print("No valid rows found.")
         return
+
+    name = sys.argv[1].upper()
 
     # Only consider writes for hotness
     write_rows = [r for r in rows if r["opname"].lower() == "write"]
@@ -95,16 +98,15 @@ def main():
         plt.plot(
             series["time"],
             series["value"],
-            marker="o",
             linestyle="-",
             label=f"key={key}",
         )
-    plt.xlabel("Real-time")
-    plt.ylabel("executionPathLength")
-    plt.title("executionPathLength over time for 5 hottest keys (writes only)")
+    plt.xlabel("Time")
+    plt.ylabel("Execution path length")
+    plt.title(f"Execution path length over time ({name})")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("hotkey_exec_path_length_over_time.png")
+    plt.savefig(f"hotkey_exec_path_length_over_time_{name}.png")
 
     # Figure 2: depGraphSize vs time for 5 hottest keys
     plt.figure(figsize=(10, 5))
@@ -115,17 +117,16 @@ def main():
         plt.plot(
             series["time"],
             series["value"],
-            marker="x",
             linestyle="-",
             label=f"key={key}",
         )
-    plt.xlabel("Real-time")
-    plt.ylabel("depGraphSize")
-    plt.title("depGraphSize over time for 5 hottest keys (writes only)")
+    plt.xlabel("Time")
+    plt.ylabel("Dependency graph size")
+    plt.title(f"Dependency graph size over time ({name})")
     plt.legend()
     plt.tight_layout()
 
-    plt.savefig("hotkey_exec_dep_over_time.png")
+    plt.savefig(f"hotkey_exec_dep_over_time_{name}.png")
 
 if __name__ == "__main__":
     main()
